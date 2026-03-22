@@ -100,6 +100,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - propagated per-topic Kubernetes labels from the admin spec into generated manifests, with Kubernetes label syntax validation at ingest time
 - rendered Kubernetes Deployment/ConfigMap/Service names validated up front so spec, tenant, and topic identifiers cannot produce invalid workload object names
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
+- optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 
 When `render` is called with `-outdir`, it also materializes:
 
@@ -110,3 +111,17 @@ When `render` is called with `-outdir`, it also materializes:
 - `<tenant>/<topic>/service.yaml`
 
 This slice is exposed through both the CLI and the REST API.
+
+Example shared Service metadata:
+
+```json
+{
+  "controlPlane": {
+    "serviceType": "LoadBalancer",
+    "serviceAnnotations": {
+      "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+      "example.com/health-check-path": "/health?plugins"
+    }
+  }
+}
+```

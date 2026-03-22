@@ -6,7 +6,10 @@
     "defaultDecisionPath": "system/authz/allow",
     "defaultListenAddress": ":8181",
     "opaImage": "openpolicyagent/opa:1.12.1",
-    "serviceType": "ClusterIP"
+    "serviceType": "ClusterIP",
+    "serviceAnnotations": {
+      "example.com/health-check-path": "/health?plugins"
+    }
   },
   "tenants": [
     {

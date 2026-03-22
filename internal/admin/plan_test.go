@@ -62,6 +62,9 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: ClusterIP") {
 		t.Fatalf("expected service manifest to default to ClusterIP, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
 	}
+	if strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "annotations:") {
+		t.Fatalf("expected service manifest to omit annotations block by default, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
 	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "port: 8181") || !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "targetPort: 8181") {
 		t.Fatalf("expected service manifest to use derived default port, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
 	}
@@ -77,12 +80,16 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	}
 }
 
-func TestBuildPlanUsesConfiguredServiceType(t *testing.T) {
+func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL: "https://control.example.com",
 			ServiceType:    "LoadBalancer",
+			ServiceAnnotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+				"example.com/health-check-path":                       "/health?plugins",
+			},
 		},
 		Tenants: []Tenant{{
 			Name:   "tenant-a",
@@ -94,11 +101,21 @@ func TestBuildPlanUsesConfiguredServiceType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildPlan returned error: %v", err)
 	}
-	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: LoadBalancer") {
-		t.Fatalf("expected service manifest to use configured service type, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	if !strings.Contains(service, "type: LoadBalancer") {
+		t.Fatalf("expected service manifest to use configured service type, got %q", service)
 	}
-	if strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: ClusterIP") {
+	if strings.Contains(service, "type: ClusterIP") {
 		t.Fatalf("expected configured service type to replace default ClusterIP")
+	}
+	if !strings.Contains(service, "annotations:") {
+		t.Fatalf("expected service manifest to render annotations block, got %q", service)
+	}
+	if !strings.Contains(service, `service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"`) {
+		t.Fatalf("expected service manifest to include service annotation, got %q", service)
+	}
+	if !strings.Contains(service, `example.com/health-check-path: "/health?plugins"`) {
+		t.Fatalf("expected service manifest to quote annotation values safely, got %q", service)
 	}
 }
 
@@ -186,24 +203,24 @@ func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
 	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
 
 	for _, manifest := range []string{configMap, deployment, service} {
-		if !strings.Contains(manifest, "environment: dev") {
+		if !strings.Contains(manifest, `environment: "dev"`) {
 			t.Fatalf("expected propagated environment label in manifest, got %q", manifest)
 		}
-		if !strings.Contains(manifest, "owner: platform") {
+		if !strings.Contains(manifest, `owner: "platform"`) {
 			t.Fatalf("expected propagated owner label in manifest, got %q", manifest)
 		}
-		if strings.Contains(manifest, "app.kubernetes.io/name: overridden") {
+		if strings.Contains(manifest, `app.kubernetes.io/name: "overridden"`) {
 			t.Fatalf("expected built-in app.kubernetes.io/name label to win over topic label override, got %q", manifest)
 		}
 	}
 
-	if !strings.Contains(deployment, "app.kubernetes.io/name: demo-tenant-a-billing-opa") {
+	if !strings.Contains(deployment, `app.kubernetes.io/name: "demo-tenant-a-billing-opa"`) {
 		t.Fatalf("expected built-in deployment identity label to remain present, got %q", deployment)
 	}
-	if strings.Count(deployment, "environment: dev") < 2 {
+	if strings.Count(deployment, `environment: "dev"`) < 2 {
 		t.Fatalf("expected propagated label in deployment metadata and pod template, got %q", deployment)
 	}
-	if !strings.Contains(service, "app.kubernetes.io/name: demo-tenant-a-billing-opa") {
+	if !strings.Contains(service, `app.kubernetes.io/name: "demo-tenant-a-billing-opa"`) {
 		t.Fatalf("expected service selector/labels to retain built-in identity, got %q", service)
 	}
 }
@@ -302,12 +319,15 @@ func TestValidateRejectsRenderedResourceNamesThatExceedLengthBudget(t *testing.T
 	}
 }
 
-func TestValidateRejectsInvalidServiceType(t *testing.T) {
+func TestValidateRejectsInvalidServiceTypeAndAnnotationKey(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL: "https://control.example.com",
 			ServiceType:    "ExternalName",
+			ServiceAnnotations: map[string]string{
+				"Example.com/internal": "true",
+			},
 		},
 		Tenants: []Tenant{{
 			Name:   "tenant-a",
@@ -322,5 +342,8 @@ func TestValidateRejectsInvalidServiceType(t *testing.T) {
 	}
 	if !strings.Contains(joined, "ClusterIP, NodePort, or LoadBalancer") {
 		t.Fatalf("expected allowed service types in issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `controlPlane.serviceAnnotations key "Example.com/internal" is invalid`) {
+		t.Fatalf("expected invalid service annotation key issue, got %#v", issues)
 	}
 }

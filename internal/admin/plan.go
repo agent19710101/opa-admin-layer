@@ -65,7 +65,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, containerPort, renderedLabels),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, containerPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -95,7 +95,7 @@ metadata:
 %sdata:
   opa-config.yaml: |
     %s
-`, name, renderLabelsBlock(labels, 4), indentedConfig)
+`, name, renderStringMapBlock(labels, 4), indentedConfig)
 }
 
 func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string) string {
@@ -142,15 +142,15 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
+`, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
 }
 
-func renderServiceYAML(name, workloadName, serviceType string, port int, labels map[string]string) string {
+func renderServiceYAML(name, workloadName, serviceType string, port int, labels, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: %s
-  labels:
+%s  labels:
 %sspec:
   type: %s
   selector:
@@ -160,7 +160,7 @@ metadata:
       port: %d
       targetPort: %d
       protocol: TCP
-`, name, renderLabelsBlock(labels, 4), serviceType, workloadName, port, port)
+`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, workloadName, port, port)
 }
 
 func listenAddressPort(listenAddress string) int {
@@ -210,9 +210,16 @@ func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string 
 	return merged
 }
 
-func renderLabelsBlock(labels map[string]string, indent int) string {
-	keys := make([]string, 0, len(labels))
-	for key := range labels {
+func renderAnnotationsSection(annotations map[string]string, indent int) string {
+	if len(annotations) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%sannotations:\n%s", strings.Repeat(" ", indent), renderStringMapBlock(annotations, indent+2))
+}
+
+func renderStringMapBlock(values map[string]string, indent int) string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -220,7 +227,7 @@ func renderLabelsBlock(labels map[string]string, indent int) string {
 
 	var b strings.Builder
 	for _, key := range keys {
-		fmt.Fprintf(&b, "%s%s: %s\n", prefix, key, labels[key])
+		fmt.Fprintf(&b, "%s%s: %s\n", prefix, key, strconv.Quote(values[key]))
 	}
 	return b.String()
 }

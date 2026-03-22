@@ -26,12 +26,13 @@ type Specification struct {
 }
 
 type ControlPlane struct {
-	BaseServiceURL       string `json:"baseServiceURL"`
-	BundlePrefix         string `json:"bundlePrefix"`
-	DefaultDecisionPath  string `json:"defaultDecisionPath"`
-	DefaultListenAddress string `json:"defaultListenAddress"`
-	OPAImage             string `json:"opaImage"`
-	ServiceType          string `json:"serviceType"`
+	BaseServiceURL       string            `json:"baseServiceURL"`
+	BundlePrefix         string            `json:"bundlePrefix"`
+	DefaultDecisionPath  string            `json:"defaultDecisionPath"`
+	DefaultListenAddress string            `json:"defaultListenAddress"`
+	OPAImage             string            `json:"opaImage"`
+	ServiceType          string            `json:"serviceType"`
+	ServiceAnnotations   map[string]string `json:"serviceAnnotations"`
 }
 
 type Tenant struct {
@@ -92,11 +93,16 @@ func Validate(spec Specification) []string {
 		issues = append(issues, "controlPlane.baseServiceURL must not be empty")
 	}
 	seenTenants := map[string]struct{}{}
-	if len(spec.Tenants) == 0 {
-		issues = append(issues, "spec.tenants must contain at least one tenant")
-	}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.serviceType is invalid: %v", err))
+	}
+	for annotationKey := range spec.ControlPlane.ServiceAnnotations {
+		if err := validateKubernetesLabelKey(annotationKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
+		}
+	}
+	if len(spec.Tenants) == 0 {
+		issues = append(issues, "spec.tenants must contain at least one tenant")
 	}
 	for _, tenant := range spec.Tenants {
 		tenantName := strings.TrimSpace(tenant.Name)

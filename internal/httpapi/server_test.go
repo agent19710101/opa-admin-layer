@@ -88,9 +88,9 @@ func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
 	}
 }
 
-func TestValidateEndpointRejectsInvalidServiceType(t *testing.T) {
+func TestValidateEndpointRejectsInvalidServiceTypeAndServiceAnnotationKey(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","serviceAnnotations":{"Example.com/internal":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -100,5 +100,8 @@ func TestValidateEndpointRejectsInvalidServiceType(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("serviceType")) {
 		t.Fatalf("expected invalid service type error, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("serviceAnnotations key")) {
+		t.Fatalf("expected invalid service annotation key error, got %s", rec.Body.String())
 	}
 }

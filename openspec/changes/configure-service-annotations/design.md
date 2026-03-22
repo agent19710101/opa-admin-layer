@@ -9,7 +9,7 @@ The goal is to cover the most common operator need introduced by the new configu
 ## Constraints
 
 - keep annotations shared across all tenant/topic Services for now
-- validate metadata before render so invalid keys or values fail through both CLI and REST paths
+- validate annotation keys before render so invalid metadata fails through both CLI and REST paths, but keep values as arbitrary strings and quote them safely in YAML output
 - do not expand this slice into Deployment annotations, Pod annotations, namespace controls, or per-topic overrides
 - preserve the current small-renderer shape: if the field is omitted, generated output stays unchanged
 

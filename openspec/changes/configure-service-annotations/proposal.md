@@ -7,7 +7,7 @@ The renderer now emits a Kubernetes Service for every tenant/topic OPA workload 
 ## Change
 
 - add optional `controlPlane.serviceAnnotations` to the admin spec as a string map
-- validate annotation keys and values before render using the same Kubernetes metadata constraints already enforced for labels
+- validate annotation keys before render using the same Kubernetes metadata key constraints already enforced for labels, while allowing arbitrary string values and emitting them with YAML-safe quoting
 - render configured annotations into every generated Service manifest
 - keep the scope intentionally small: Service metadata only, with no Deployment or Pod annotation support in this slice
 - add regression tests and docs for default, configured, and invalid annotation cases
