@@ -35,6 +35,9 @@ func WritePlanTree(plan Plan, outDir string) error {
 			if err := os.WriteFile(filepath.Join(topicDir, "deployment.yaml"), []byte(topic.DeploymentManifestYAML), 0o644); err != nil {
 				return fmt.Errorf("write deployment.yaml for %s/%s: %w", tenant.Name, topic.Name, err)
 			}
+			if err := os.WriteFile(filepath.Join(topicDir, "service.yaml"), []byte(topic.ServiceManifestYAML), 0o644); err != nil {
+				return fmt.Errorf("write service.yaml for %s/%s: %w", tenant.Name, topic.Name, err)
+			}
 		}
 	}
 

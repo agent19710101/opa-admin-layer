@@ -59,4 +59,12 @@ func TestWritePlanTree(t *testing.T) {
 	if string(deployment) != plan.Tenants[0].Topics[0].DeploymentManifestYAML {
 		t.Fatalf("deployment.yaml mismatch: got %q want %q", string(deployment), plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 	}
+
+	service, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "service.yaml"))
+	if err != nil {
+		t.Fatalf("read service.yaml: %v", err)
+	}
+	if string(service) != plan.Tenants[0].Topics[0].ServiceManifestYAML {
+		t.Fatalf("service.yaml mismatch: got %q want %q", string(service), plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
 }

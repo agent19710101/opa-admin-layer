@@ -41,6 +41,7 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		filepath.Join(outDir, "tenant-a", "billing", "opa-config.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "configmap.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"),
+		filepath.Join(outDir, "tenant-a", "billing", "service.yaml"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s to exist: %v", path, err)

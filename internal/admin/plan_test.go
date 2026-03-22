@@ -56,6 +56,12 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "configMap:") || !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "mountPath: /config") {
 		t.Fatalf("expected deployment manifest to mount rendered config map, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "kind: Service") {
+		t.Fatalf("expected service manifest to be rendered, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "port: 8181") || !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "targetPort: 8181") {
+		t.Fatalf("expected service manifest to use derived default port, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
 	for _, expected := range []string{
 		"containerPort: 8181",
 		"path: /health?plugins",
@@ -118,6 +124,11 @@ func TestBuildPlanRendersProbesUsingExplicitListenAddressPort(t *testing.T) {
 	if count := strings.Count(deployment, "port: 8282"); count != 2 {
 		t.Fatalf("expected both probes to target explicit listen port, got count=%d manifest=%q", count, deployment)
 	}
+
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	if !strings.Contains(service, "port: 8282") || !strings.Contains(service, "targetPort: 8282") {
+		t.Fatalf("expected service manifest to use explicit listen port, got %q", service)
+	}
 }
 
 func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
@@ -144,8 +155,9 @@ func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
 
 	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
 	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
 
-	for _, manifest := range []string{configMap, deployment} {
+	for _, manifest := range []string{configMap, deployment, service} {
 		if !strings.Contains(manifest, "environment: dev") {
 			t.Fatalf("expected propagated environment label in manifest, got %q", manifest)
 		}
@@ -162,5 +174,8 @@ func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
 	}
 	if strings.Count(deployment, "environment: dev") < 2 {
 		t.Fatalf("expected propagated label in deployment metadata and pod template, got %q", deployment)
+	}
+	if !strings.Contains(service, "app.kubernetes.io/name: demo-tenant-a-billing-opa") {
+		t.Fatalf("expected service selector/labels to retain built-in identity, got %q", service)
 	}
 }

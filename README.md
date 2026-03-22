@@ -105,5 +105,7 @@ When `render` is called with `-outdir`, it also materializes:
 - `<tenant>/<topic>/opa-config.yaml`
 - `<tenant>/<topic>/configmap.yaml`
 - `<tenant>/<topic>/deployment.yaml`
+- `<tenant>/<topic>/service.yaml`
 
 This slice is exposed through both the CLI and the REST API.
+osed through both the CLI and the REST API.

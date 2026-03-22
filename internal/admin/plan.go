@@ -32,6 +32,7 @@ type TopicPlan struct {
 	OPAConfigYAML          string            `json:"opaConfigYAML"`
 	ConfigMapManifestYAML  string            `json:"configMapManifestYAML"`
 	DeploymentManifestYAML string            `json:"deploymentManifestYAML"`
+	ServiceManifestYAML    string            `json:"serviceManifestYAML"`
 }
 
 func BuildPlan(spec Specification) (Plan, error) {
@@ -50,9 +51,11 @@ func BuildPlan(spec Specification) (Plan, error) {
 		for _, topic := range tenant.Topics {
 			bundleURL := strings.TrimRight(normalized.ControlPlane.BaseServiceURL, "/") + "/" + strings.TrimLeft(topic.BundleResource, "/")
 			opaConfigYAML := renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource)
+			workloadName := deploymentName(normalized.Name, tenant.Name, topic.Name)
 			builtInLabels := builtInTopicLabels(normalized.Name, tenant.Name, topic.Name)
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
+			containerPort := listenAddressPort(normalized.ControlPlane.DefaultListenAddress)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -61,7 +64,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(deploymentName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, containerPort, renderedLabels),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -141,6 +145,23 @@ metadata:
 `, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
 }
 
+func renderServiceYAML(name, workloadName string, port int, labels map[string]string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: %s
+  labels:
+%sspec:
+  selector:
+    app.kubernetes.io/name: %s
+  ports:
+    - name: http
+      port: %d
+      targetPort: %d
+      protocol: TCP
+`, name, renderLabelsBlock(labels, 4), workloadName, port, port)
+}
+
 func listenAddressPort(listenAddress string) int {
 	trimmed := strings.TrimSpace(listenAddress)
 	if trimmed == "" {
@@ -209,6 +230,10 @@ func deploymentName(appName, tenantName, topicName string) string {
 
 func topicConfigMapName(appName, tenantName, topicName string) string {
 	return fmt.Sprintf("%s-%s-%s-opa-config", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
+}
+
+func serviceName(appName, tenantName, topicName string) string {
+	return fmt.Sprintf("%s-%s-%s-opa", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
 }
 
 func sanitizeName(value string) string {

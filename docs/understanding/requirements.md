@@ -14,9 +14,10 @@
 2. Treat tenant/topic scope as the unit of isolation and rollout.
 3. Expose both CLI and REST API.
 4. Validate input specs before rendering plans.
-5. Render plan artifacts that are useful to operators: bundle URL, OPA config, config map manifest, deployment manifest.
+5. Render plan artifacts that are useful to operators: bundle URL, OPA config, config map manifest, deployment manifest, service manifest.
 6. Generated deployment manifests must mount the generated OPA config instead of referencing an external file that is not provisioned by the plan.
 7. Topic labels provided in the admin spec should propagate into generated Kubernetes manifests so operators can preserve ownership, environment, and routing metadata without post-processing.
+8. Generated plans should expose each tenant/topic OPA workload through a stable in-cluster Kubernetes Service derived from the normalized listen port.
 
 ## Operational requirements
 
