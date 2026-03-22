@@ -44,7 +44,32 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].OPAConfigYAML, "resource: bundles/tenant-a/billing.tar.gz") {
 		t.Fatalf("expected rendered OPA config to contain bundle resource, got %q", plan.Tenants[0].Topics[0].OPAConfigYAML)
 	}
-	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "openpolicyagent/opa:1.12.1") {
-		t.Fatalf("expected deployment manifest to pin OPA image")
+	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, DefaultOPAImage) {
+		t.Fatalf("expected deployment manifest to pin default OPA image")
+	}
+}
+
+func TestBuildPlanUsesConfiguredOPAImage(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAImage:       "registry.example.com/opa:1.13.0",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "registry.example.com/opa:1.13.0") {
+		t.Fatalf("expected deployment manifest to use configured OPA image, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
+	}
+	if strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, DefaultOPAImage) {
+		t.Fatalf("expected deployment manifest to avoid fallback image when override is provided")
 	}
 }

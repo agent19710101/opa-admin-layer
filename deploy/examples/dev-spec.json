@@ -4,7 +4,8 @@
     "baseServiceURL": "https://control.example.com",
     "bundlePrefix": "bundles",
     "defaultDecisionPath": "system/authz/allow",
-    "defaultListenAddress": ":8181"
+    "defaultListenAddress": ":8181",
+    "opaImage": "openpolicyagent/opa:1.12.1"
   },
   "tenants": [
     {

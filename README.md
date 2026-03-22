@@ -90,7 +90,7 @@ The dispatcher advances one phase per run in this order:
 The first shipped slice validates a tenant/topic scoped admin spec and renders an OPA-only plan containing:
 
 - strict JSON decoding for CLI and REST input (unknown fields are rejected early)
-
+- configurable but pinned OPA image selection via `controlPlane.opaImage`
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL
 - generated OPA config YAML

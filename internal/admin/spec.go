@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const DefaultOPAImage = "openpolicyagent/opa:1.12.1"
+
 type Specification struct {
 	Name         string       `json:"name"`
 	ControlPlane ControlPlane `json:"controlPlane"`
@@ -21,6 +23,7 @@ type ControlPlane struct {
 	BundlePrefix         string `json:"bundlePrefix"`
 	DefaultDecisionPath  string `json:"defaultDecisionPath"`
 	DefaultListenAddress string `json:"defaultListenAddress"`
+	OPAImage             string `json:"opaImage"`
 }
 
 type Tenant struct {
@@ -128,6 +131,9 @@ func normalize(spec Specification) Specification {
 	}
 	if strings.TrimSpace(normalized.ControlPlane.DefaultListenAddress) == "" {
 		normalized.ControlPlane.DefaultListenAddress = ":8181"
+	}
+	if strings.TrimSpace(normalized.ControlPlane.OPAImage) == "" {
+		normalized.ControlPlane.OPAImage = DefaultOPAImage
 	}
 	for i := range normalized.Tenants {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)

@@ -52,7 +52,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				ListenAddress:          normalized.ControlPlane.DefaultListenAddress,
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource),
-				DeploymentManifestYAML: renderDeploymentYAML(normalized.Name, tenant.Name, topic.Name, normalized.ControlPlane.DefaultListenAddress),
+				DeploymentManifestYAML: renderDeploymentYAML(normalized.Name, tenant.Name, topic.Name, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -72,7 +72,7 @@ bundles:
 `, baseURL, bundleResource)
 }
 
-func renderDeploymentYAML(appName, tenantName, topicName, listenAddress string) string {
+func renderDeploymentYAML(appName, tenantName, topicName, listenAddress, image string) string {
 	name := fmt.Sprintf("%s-%s-%s-opa", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
@@ -96,13 +96,13 @@ spec:
     spec:
       containers:
         - name: opa
-          image: openpolicyagent/opa:1.12.1
+          image: %s
           args:
             - run
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, sanitizeName(appName), tenantName, topicName, name, name, listenAddress)
+`, name, sanitizeName(appName), tenantName, topicName, name, name, image, listenAddress)
 }
 
 func sanitizeName(value string) string {

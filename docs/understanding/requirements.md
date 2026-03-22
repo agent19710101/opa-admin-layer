@@ -19,6 +19,7 @@
 ## Operational requirements
 
 1. Pin OPA versions in generated artifacts.
-2. Prefer sidecar-style deployment defaults.
-3. Leave clear blockers when external capabilities are missing.
-4. Keep the repository runnable and testable after each meaningful change.
+2. Allow the pinned OPA image reference to be overridden from the admin spec for environment-specific registry or tag policy.
+3. Prefer sidecar-style deployment defaults.
+4. Leave clear blockers when external capabilities are missing.
+5. Keep the repository runnable and testable after each meaningful change.

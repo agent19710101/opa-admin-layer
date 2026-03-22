@@ -37,3 +37,5 @@ The output plan is intentionally small and operator-focused:
 - bundle URL per topic
 - rendered OPA config YAML
 - rendered Kubernetes deployment YAML
+
+Current architecture note: deployment rendering now treats the OPA image as control-plane configuration instead of a hard-coded renderer constant. The default remains pinned, but operators can override the image reference through the admin spec to satisfy registry and release policy without post-processing manifests.
