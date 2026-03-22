@@ -130,6 +130,15 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			for resourceKind, resourceName := range map[string]string{
+				"deployment": deploymentName(spec.Name, tenantName, topicName),
+				"configmap":  topicConfigMapName(spec.Name, tenantName, topicName),
+				"service":    serviceName(spec.Name, tenantName, topicName),
+			} {
+				if err := validateRenderedResourceName(resourceName); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q renders invalid %s name %q: %v", tenantName, topicName, resourceKind, resourceName, err))
+				}
+			}
 		}
 	}
 	sort.Strings(issues)
@@ -188,6 +197,19 @@ func validateDNS1123Subdomain(value string) error {
 		if !dns1123LabelPattern.MatchString(label) {
 			return fmt.Errorf("segment %q must match DNS-1123 label syntax", label)
 		}
+	}
+	return nil
+}
+
+func validateRenderedResourceName(name string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("must not be empty")
+	}
+	if len(name) > 63 {
+		return fmt.Errorf("must be 63 characters or fewer")
+	}
+	if !dns1123LabelPattern.MatchString(name) {
+		return fmt.Errorf("must use lowercase alphanumerics or '-', and start/end with an alphanumeric character")
 	}
 	return nil
 }

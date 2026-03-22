@@ -230,3 +230,46 @@ func TestBuildPlanRejectsInvalidTopicLabels(t *testing.T) {
 		t.Fatalf("expected invalid label error, got %v", err)
 	}
 }
+
+func TestValidateRejectsRenderedResourceNamesWithInvalidCharacters(t *testing.T) {
+	spec := Specification{
+		Name:         "demo!",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `renders invalid deployment name "demo!-tenant-a-billing-opa"`) {
+		t.Fatalf("expected invalid deployment-name issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `renders invalid configmap name "demo!-tenant-a-billing-opa-config"`) {
+		t.Fatalf("expected invalid configmap-name issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `renders invalid service name "demo!-tenant-a-billing-opa"`) {
+		t.Fatalf("expected invalid service-name issue, got %#v", issues)
+	}
+}
+
+func TestValidateRejectsRenderedResourceNamesThatExceedLengthBudget(t *testing.T) {
+	spec := Specification{
+		Name:         strings.Repeat("a", 30),
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name:   strings.Repeat("b", 20),
+			Topics: []Topic{{Name: strings.Repeat("c", 20)}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `must be 63 characters or fewer`) {
+		t.Fatalf("expected rendered-name length issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `renders invalid deployment name`) {
+		t.Fatalf("expected deployment-name length issue, got %#v", issues)
+	}
+}

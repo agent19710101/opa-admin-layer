@@ -98,6 +98,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - generated Kubernetes deployment YAML for a sidecar-style OPA deployment
 - declared OPA container ports and default readiness/liveness probes derived from the normalized listen address
 - propagated per-topic Kubernetes labels from the admin spec into generated manifests, with Kubernetes label syntax validation at ingest time
+- rendered Kubernetes Deployment/ConfigMap/Service names validated up front so spec, tenant, and topic identifiers cannot produce invalid workload object names
 
 When `render` is called with `-outdir`, it also materializes:
 

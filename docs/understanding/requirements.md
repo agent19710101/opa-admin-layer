@@ -18,7 +18,8 @@
 6. Generated deployment manifests must mount the generated OPA config instead of referencing an external file that is not provisioned by the plan.
 7. Topic labels provided in the admin spec should propagate into generated Kubernetes manifests so operators can preserve ownership, environment, and routing metadata without post-processing.
 8. Topic labels must be validated against Kubernetes label-key and label-value syntax before plan rendering so generated manifests remain valid.
-9. Generated plans should expose each tenant/topic OPA workload through a stable in-cluster Kubernetes Service derived from the normalized listen port.
+9. Generated Kubernetes object names derived from spec, tenant, and topic identifiers must be validated before render so operators do not get unusable Deployment, ConfigMap, or Service artifacts.
+10. Generated plans should expose each tenant/topic OPA workload through a stable in-cluster Kubernetes Service derived from the normalized listen port.
 
 ## Operational requirements
 

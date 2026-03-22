@@ -72,3 +72,18 @@ func TestValidateEndpointRejectsInvalidTopicLabels(t *testing.T) {
 		t.Fatalf("expected invalid label value error, got %s", rec.Body.String())
 	}
 }
+
+func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo!","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("renders invalid deployment name")) {
+		t.Fatalf("expected invalid rendered-name error, got %s", rec.Body.String())
+	}
+}
