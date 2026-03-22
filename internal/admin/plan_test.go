@@ -59,6 +59,9 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "kind: Service") {
 		t.Fatalf("expected service manifest to be rendered, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
 	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: ClusterIP") {
+		t.Fatalf("expected service manifest to default to ClusterIP, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
 	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "port: 8181") || !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "targetPort: 8181") {
 		t.Fatalf("expected service manifest to use derived default port, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
 	}
@@ -71,6 +74,31 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 		if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, expected) {
 			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 		}
+	}
+}
+
+func TestBuildPlanUsesConfiguredServiceType(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceType:    "LoadBalancer",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: LoadBalancer") {
+		t.Fatalf("expected service manifest to use configured service type, got %q", plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
+	if strings.Contains(plan.Tenants[0].Topics[0].ServiceManifestYAML, "type: ClusterIP") {
+		t.Fatalf("expected configured service type to replace default ClusterIP")
 	}
 }
 
@@ -271,5 +299,28 @@ func TestValidateRejectsRenderedResourceNamesThatExceedLengthBudget(t *testing.T
 	}
 	if !strings.Contains(joined, `renders invalid deployment name`) {
 		t.Fatalf("expected deployment-name length issue, got %#v", issues)
+	}
+}
+
+func TestValidateRejectsInvalidServiceType(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceType:    "ExternalName",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, "controlPlane.serviceType is invalid") {
+		t.Fatalf("expected invalid service type issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, "ClusterIP, NodePort, or LoadBalancer") {
+		t.Fatalf("expected allowed service types in issue, got %#v", issues)
 	}
 }

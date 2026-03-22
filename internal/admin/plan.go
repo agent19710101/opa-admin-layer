@@ -65,7 +65,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, containerPort, renderedLabels),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, containerPort, renderedLabels),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -145,13 +145,14 @@ metadata:
 `, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
 }
 
-func renderServiceYAML(name, workloadName string, port int, labels map[string]string) string {
+func renderServiceYAML(name, workloadName, serviceType string, port int, labels map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: %s
   labels:
 %sspec:
+  type: %s
   selector:
     app.kubernetes.io/name: %s
   ports:
@@ -159,7 +160,7 @@ metadata:
       port: %d
       targetPort: %d
       protocol: TCP
-`, name, renderLabelsBlock(labels, 4), workloadName, port, port)
+`, name, renderLabelsBlock(labels, 4), serviceType, workloadName, port, port)
 }
 
 func listenAddressPort(listenAddress string) int {

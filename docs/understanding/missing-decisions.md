@@ -8,4 +8,4 @@ The core product direction is now explicit. Remaining design choices are impleme
 - authentication/authorization model for the REST API
 - exact persistence model for workflow telemetry and historical runs
 - whether the admin spec should also support YAML in addition to JSON
-- whether future rendered Services need configurable type/annotations for ingress, mesh, or load-balancer integration
+- whether future rendered Services need configurable annotations, traffic policy knobs, or multi-port exposure for ingress, mesh, or load-balancer integration

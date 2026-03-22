@@ -31,6 +31,7 @@ type ControlPlane struct {
 	DefaultDecisionPath  string `json:"defaultDecisionPath"`
 	DefaultListenAddress string `json:"defaultListenAddress"`
 	OPAImage             string `json:"opaImage"`
+	ServiceType          string `json:"serviceType"`
 }
 
 type Tenant struct {
@@ -93,6 +94,9 @@ func Validate(spec Specification) []string {
 	seenTenants := map[string]struct{}{}
 	if len(spec.Tenants) == 0 {
 		issues = append(issues, "spec.tenants must contain at least one tenant")
+	}
+	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.serviceType is invalid: %v", err))
 	}
 	for _, tenant := range spec.Tenants {
 		tenantName := strings.TrimSpace(tenant.Name)
@@ -201,6 +205,19 @@ func validateDNS1123Subdomain(value string) error {
 	return nil
 }
 
+func validateKubernetesServiceType(serviceType string) error {
+	trimmed := strings.TrimSpace(serviceType)
+	if trimmed == "" {
+		return nil
+	}
+	switch trimmed {
+	case "ClusterIP", "NodePort", "LoadBalancer":
+		return nil
+	default:
+		return fmt.Errorf("must be one of ClusterIP, NodePort, or LoadBalancer")
+	}
+}
+
 func validateRenderedResourceName(name string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("must not be empty")
@@ -227,6 +244,9 @@ func normalize(spec Specification) Specification {
 	}
 	if strings.TrimSpace(normalized.ControlPlane.OPAImage) == "" {
 		normalized.ControlPlane.OPAImage = DefaultOPAImage
+	}
+	if strings.TrimSpace(normalized.ControlPlane.ServiceType) == "" {
+		normalized.ControlPlane.ServiceType = "ClusterIP"
 	}
 	for i := range normalized.Tenants {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)

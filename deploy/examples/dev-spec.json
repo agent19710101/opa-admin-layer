@@ -5,7 +5,8 @@
     "bundlePrefix": "bundles",
     "defaultDecisionPath": "system/authz/allow",
     "defaultListenAddress": ":8181",
-    "opaImage": "openpolicyagent/opa:1.12.1"
+    "opaImage": "openpolicyagent/opa:1.12.1",
+    "serviceType": "ClusterIP"
   },
   "tenants": [
     {

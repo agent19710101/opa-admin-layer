@@ -87,3 +87,18 @@ func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
 		t.Fatalf("expected invalid rendered-name error, got %s", rec.Body.String())
 	}
 }
+
+func TestValidateEndpointRejectsInvalidServiceType(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("serviceType")) {
+		t.Fatalf("expected invalid service type error, got %s", rec.Body.String())
+	}
+}
