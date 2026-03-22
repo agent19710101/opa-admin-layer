@@ -42,6 +42,7 @@ The runtime state directory holds the active project, project queue, switch requ
 make test
 ./bin/opa-admin-layer validate -input deploy/examples/dev-spec.json
 ./bin/opa-admin-layer render -input deploy/examples/dev-spec.json
+./bin/opa-admin-layer render -input deploy/examples/dev-spec.json -outdir ./tmp/plan
 ./bin/opa-admin-layer serve -addr :8080
 ```
 
@@ -92,5 +93,11 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - per-topic OPA bundle URL
 - generated OPA config YAML
 - generated Kubernetes deployment YAML for a sidecar-style OPA deployment
+
+When `render` is called with `-outdir`, it also materializes:
+
+- `plan.json` at the output root
+- `<tenant>/<topic>/opa-config.yaml`
+- `<tenant>/<topic>/deployment.yaml`
 
 This slice is exposed through both the CLI and the REST API.

@@ -5,6 +5,7 @@
 - [x] define architecture and repo layout
 - [x] mirror OpenSpec structure manually
 - [x] implement CLI + REST plan renderer/validator in Go
+- [x] materialize rendered plan files from the CLI
 - [x] add tests for validation and REST API behavior
 - [x] add cycle scripts and phase runner artifacts
 - [x] add CI and release workflow files

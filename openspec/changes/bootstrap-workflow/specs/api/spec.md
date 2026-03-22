@@ -13,3 +13,7 @@ The product MUST render a plan for each tenant/topic that includes the OPA bundl
 #### Scenario: render default bundle path
 - **WHEN** a topic omits an explicit bundle resource
 - **THEN** the system uses `<bundlePrefix>/<tenant>/<topic>.tar.gz`
+
+#### Scenario: materialize rendered plan files
+- **WHEN** the CLI render command is called with an output directory
+- **THEN** the system writes `plan.json` plus per-tenant/topic `opa-config.yaml` and `deployment.yaml` files

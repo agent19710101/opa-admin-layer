@@ -41,6 +41,7 @@ func runRender(args []string) error {
 	fs := flag.NewFlagSet("render", flag.ContinueOnError)
 	input := fs.String("input", "", "path to JSON admin spec")
 	output := fs.String("output", "-", "output path or - for stdout")
+	outDir := fs.String("outdir", "", "directory to write plan.json and per-topic YAML artifacts")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -55,6 +56,11 @@ func runRender(args []string) error {
 	plan, err := admin.BuildPlan(spec)
 	if err != nil {
 		return err
+	}
+	if *outDir != "" {
+		if err := admin.WritePlanTree(plan, *outDir); err != nil {
+			return err
+		}
 	}
 	encoded, err := json.MarshalIndent(plan, "", "  ")
 	if err != nil {
@@ -107,7 +113,7 @@ func usageError() error {
 
 func usageText() string {
 	return `Usage:
-  opa-admin-layer render -input spec.json [-output plan.json]
+  opa-admin-layer render -input spec.json [-output plan.json] [-outdir dir]
   opa-admin-layer validate -input spec.json
   opa-admin-layer serve -addr :8080`
 }
