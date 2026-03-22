@@ -27,6 +27,7 @@ type TopicPlan struct {
 	ListenAddress          string            `json:"listenAddress"`
 	Labels                 map[string]string `json:"labels,omitempty"`
 	OPAConfigYAML          string            `json:"opaConfigYAML"`
+	ConfigMapManifestYAML  string            `json:"configMapManifestYAML"`
 	DeploymentManifestYAML string            `json:"deploymentManifestYAML"`
 }
 
@@ -45,14 +46,17 @@ func BuildPlan(spec Specification) (Plan, error) {
 		tenantPlan := TenantPlan{Name: tenant.Name, Topics: make([]TopicPlan, 0, len(tenant.Topics))}
 		for _, topic := range tenant.Topics {
 			bundleURL := strings.TrimRight(normalized.ControlPlane.BaseServiceURL, "/") + "/" + strings.TrimLeft(topic.BundleResource, "/")
+			opaConfigYAML := renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource)
+			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
 				DecisionPath:           topic.DecisionPath,
 				ListenAddress:          normalized.ControlPlane.DefaultListenAddress,
 				Labels:                 topic.Labels,
-				OPAConfigYAML:          renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource),
-				DeploymentManifestYAML: renderDeploymentYAML(normalized.Name, tenant.Name, topic.Name, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage),
+				OPAConfigYAML:          opaConfigYAML,
+				ConfigMapManifestYAML:  renderConfigMapYAML(normalized.Name, tenant.Name, topic.Name, opaConfigYAML),
+				DeploymentManifestYAML: renderDeploymentYAML(normalized.Name, tenant.Name, topic.Name, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -72,7 +76,25 @@ bundles:
 `, baseURL, bundleResource)
 }
 
-func renderDeploymentYAML(appName, tenantName, topicName, listenAddress, image string) string {
+func renderConfigMapYAML(appName, tenantName, topicName, opaConfig string) string {
+	name := topicConfigMapName(appName, tenantName, topicName)
+	indentedConfig := strings.ReplaceAll(strings.TrimRight(opaConfig, "\n"), "\n", "\n    ")
+	return fmt.Sprintf(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: %s
+  labels:
+    app.kubernetes.io/name: %s
+    app.kubernetes.io/component: opa
+    app.kubernetes.io/tenant: %s
+    app.kubernetes.io/topic: %s
+data:
+  opa-config.yaml: |
+    %s
+`, name, sanitizeName(appName), tenantName, topicName, indentedConfig)
+}
+
+func renderDeploymentYAML(appName, tenantName, topicName, listenAddress, image, configMapName string) string {
 	name := fmt.Sprintf("%s-%s-%s-opa", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
@@ -94,15 +116,27 @@ spec:
         app.kubernetes.io/name: %s
         app.kubernetes.io/component: opa
     spec:
+      volumes:
+        - name: opa-config
+          configMap:
+            name: %s
       containers:
         - name: opa
           image: %s
+          volumeMounts:
+            - name: opa-config
+              mountPath: /config
+              readOnly: true
           args:
             - run
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, sanitizeName(appName), tenantName, topicName, name, name, image, listenAddress)
+`, name, sanitizeName(appName), tenantName, topicName, name, name, configMapName, image, listenAddress)
+}
+
+func topicConfigMapName(appName, tenantName, topicName string) string {
+	return fmt.Sprintf("%s-%s-%s-opa-config", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
 }
 
 func sanitizeName(value string) string {

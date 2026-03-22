@@ -4,4 +4,5 @@
 - Topic-scoped tenancy needs careful naming and ownership boundaries to avoid accidental policy leakage.
 - OPA-only is the correct starting topology, but fast-changing data may later require bundle/discovery improvements or OPAL-like capabilities.
 - A hard-coded OPA image can drift from environment-specific registry, mirroring, or approval policy unless the plan renderer exposes that pin as spec input.
+- A deployment manifest that references `/config/opa-config.yaml` without provisioning it is not runnable and pushes avoidable integration work onto operators.
 - Release automation exists locally, but GitHub push/release execution still depends on remote repo creation and permissions.

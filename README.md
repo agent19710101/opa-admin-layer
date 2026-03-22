@@ -94,12 +94,14 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL
 - generated OPA config YAML
+- generated Kubernetes ConfigMap YAML carrying the OPA config
 - generated Kubernetes deployment YAML for a sidecar-style OPA deployment
 
 When `render` is called with `-outdir`, it also materializes:
 
 - `plan.json` at the output root
 - `<tenant>/<topic>/opa-config.yaml`
+- `<tenant>/<topic>/configmap.yaml`
 - `<tenant>/<topic>/deployment.yaml`
 
 This slice is exposed through both the CLI and the REST API.

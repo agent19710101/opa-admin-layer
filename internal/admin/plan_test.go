@@ -44,8 +44,17 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].OPAConfigYAML, "resource: bundles/tenant-a/billing.tar.gz") {
 		t.Fatalf("expected rendered OPA config to contain bundle resource, got %q", plan.Tenants[0].Topics[0].OPAConfigYAML)
 	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ConfigMapManifestYAML, "kind: ConfigMap") {
+		t.Fatalf("expected config map manifest to be rendered, got %q", plan.Tenants[0].Topics[0].ConfigMapManifestYAML)
+	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].ConfigMapManifestYAML, "opa-config.yaml: |") {
+		t.Fatalf("expected config map manifest to inline opa-config.yaml contents")
+	}
 	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, DefaultOPAImage) {
 		t.Fatalf("expected deployment manifest to pin default OPA image")
+	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "configMap:") || !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "mountPath: /config") {
+		t.Fatalf("expected deployment manifest to mount rendered config map, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 	}
 }
 

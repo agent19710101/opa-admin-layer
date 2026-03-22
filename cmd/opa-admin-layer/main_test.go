@@ -39,6 +39,7 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		stdoutPath,
 		filepath.Join(outDir, "plan.json"),
 		filepath.Join(outDir, "tenant-a", "billing", "opa-config.yaml"),
+		filepath.Join(outDir, "tenant-a", "billing", "configmap.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"),
 	} {
 		if _, err := os.Stat(path); err != nil {

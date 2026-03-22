@@ -17,6 +17,7 @@ func TestWritePlanTree(t *testing.T) {
 			Topics: []TopicPlan{{
 				Name:                   "billing",
 				OPAConfigYAML:          "services:\n  controlplane:\n",
+				ConfigMapManifestYAML:  "apiVersion: v1\nkind: ConfigMap\n",
 				DeploymentManifestYAML: "apiVersion: apps/v1\nkind: Deployment\n",
 			}},
 		}},
@@ -41,6 +42,14 @@ func TestWritePlanTree(t *testing.T) {
 	}
 	if string(opaConfig) != plan.Tenants[0].Topics[0].OPAConfigYAML {
 		t.Fatalf("opa-config.yaml mismatch: got %q want %q", string(opaConfig), plan.Tenants[0].Topics[0].OPAConfigYAML)
+	}
+
+	configMap, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "configmap.yaml"))
+	if err != nil {
+		t.Fatalf("read configmap.yaml: %v", err)
+	}
+	if string(configMap) != plan.Tenants[0].Topics[0].ConfigMapManifestYAML {
+		t.Fatalf("configmap.yaml mismatch: got %q want %q", string(configMap), plan.Tenants[0].Topics[0].ConfigMapManifestYAML)
 	}
 
 	deployment, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))
