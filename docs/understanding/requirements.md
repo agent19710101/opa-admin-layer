@@ -16,6 +16,7 @@
 4. Validate input specs before rendering plans.
 5. Render plan artifacts that are useful to operators: bundle URL, OPA config, config map manifest, deployment manifest.
 6. Generated deployment manifests must mount the generated OPA config instead of referencing an external file that is not provisioned by the plan.
+7. Topic labels provided in the admin spec should propagate into generated Kubernetes manifests so operators can preserve ownership, environment, and routing metadata without post-processing.
 
 ## Operational requirements
 

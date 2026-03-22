@@ -82,3 +82,48 @@ func TestBuildPlanUsesConfiguredOPAImage(t *testing.T) {
 		t.Fatalf("expected deployment manifest to avoid fallback image when override is provided")
 	}
 }
+
+func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"environment":            "dev",
+					"owner":                  "platform",
+					"app.kubernetes.io/name": "overridden",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+
+	for _, manifest := range []string{configMap, deployment} {
+		if !strings.Contains(manifest, "environment: dev") {
+			t.Fatalf("expected propagated environment label in manifest, got %q", manifest)
+		}
+		if !strings.Contains(manifest, "owner: platform") {
+			t.Fatalf("expected propagated owner label in manifest, got %q", manifest)
+		}
+		if strings.Contains(manifest, "app.kubernetes.io/name: overridden") {
+			t.Fatalf("expected built-in app.kubernetes.io/name label to win over topic label override, got %q", manifest)
+		}
+	}
+
+	if !strings.Contains(deployment, "app.kubernetes.io/name: demo-tenant-a-billing-opa") {
+		t.Fatalf("expected built-in deployment identity label to remain present, got %q", deployment)
+	}
+	if strings.Count(deployment, "environment: dev") < 2 {
+		t.Fatalf("expected propagated label in deployment metadata and pod template, got %q", deployment)
+	}
+}

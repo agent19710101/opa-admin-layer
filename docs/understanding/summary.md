@@ -11,6 +11,7 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 - OPAL adds realtime orchestration and client topic subscriptions, but it is not required for an OPA-only topology.
 - Production deployments should pin versions, prefer TLS, and be explicit about bundle distribution and observability.
 - Topic boundaries are the right mental model for routing policy/data updates to the right consumers.
+- Topic-scoped metadata is operationally useful only if it survives plan rendering and reaches emitted deployment artifacts.
 
 ## Locked project decisions
 

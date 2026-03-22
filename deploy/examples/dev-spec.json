@@ -11,7 +11,13 @@
     {
       "name": "tenant-a",
       "topics": [
-        {"name": "billing"},
+        {
+          "name": "billing",
+          "labels": {
+            "environment": "dev",
+            "owner": "platform"
+          }
+        },
         {"name": "support", "decisionPath": "support/authz/allow"}
       ]
     },

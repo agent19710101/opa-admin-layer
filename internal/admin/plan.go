@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -47,6 +48,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 		for _, topic := range tenant.Topics {
 			bundleURL := strings.TrimRight(normalized.ControlPlane.BaseServiceURL, "/") + "/" + strings.TrimLeft(topic.BundleResource, "/")
 			opaConfigYAML := renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource)
+			builtInLabels := builtInTopicLabels(normalized.Name, tenant.Name, topic.Name)
+			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
@@ -55,8 +58,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 				ListenAddress:          normalized.ControlPlane.DefaultListenAddress,
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
-				ConfigMapManifestYAML:  renderConfigMapYAML(normalized.Name, tenant.Name, topic.Name, opaConfigYAML),
-				DeploymentManifestYAML: renderDeploymentYAML(normalized.Name, tenant.Name, topic.Name, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName),
+				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
+				DeploymentManifestYAML: renderDeploymentYAML(deploymentName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -76,36 +79,26 @@ bundles:
 `, baseURL, bundleResource)
 }
 
-func renderConfigMapYAML(appName, tenantName, topicName, opaConfig string) string {
-	name := topicConfigMapName(appName, tenantName, topicName)
+func renderConfigMapYAML(name, opaConfig string, labels map[string]string) string {
 	indentedConfig := strings.ReplaceAll(strings.TrimRight(opaConfig, "\n"), "\n", "\n    ")
 	return fmt.Sprintf(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: %s
   labels:
-    app.kubernetes.io/name: %s
-    app.kubernetes.io/component: opa
-    app.kubernetes.io/tenant: %s
-    app.kubernetes.io/topic: %s
-data:
+%sdata:
   opa-config.yaml: |
     %s
-`, name, sanitizeName(appName), tenantName, topicName, indentedConfig)
+`, name, renderLabelsBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(appName, tenantName, topicName, listenAddress, image, configMapName string) string {
-	name := fmt.Sprintf("%s-%s-%s-opa", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
+func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: %s
   labels:
-    app.kubernetes.io/name: %s
-    app.kubernetes.io/component: opa
-    app.kubernetes.io/tenant: %s
-    app.kubernetes.io/topic: %s
-spec:
+%sspec:
   replicas: 1
   selector:
     matchLabels:
@@ -113,9 +106,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: %s
-        app.kubernetes.io/component: opa
-    spec:
+%s    spec:
       volumes:
         - name: opa-config
           configMap:
@@ -132,7 +123,49 @@ spec:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, sanitizeName(appName), tenantName, topicName, name, name, configMapName, image, listenAddress)
+`, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, listenAddress)
+}
+
+func builtInTopicLabels(appName, tenantName, topicName string) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":      deploymentName(appName, tenantName, topicName),
+		"app.kubernetes.io/component": "opa",
+		"app.kubernetes.io/tenant":    tenantName,
+		"app.kubernetes.io/topic":     topicName,
+	}
+}
+
+func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string {
+	merged := make(map[string]string, len(builtIn)+len(topicLabels))
+	for key, value := range builtIn {
+		merged[key] = value
+	}
+	for key, value := range topicLabels {
+		if _, exists := merged[key]; exists {
+			continue
+		}
+		merged[key] = value
+	}
+	return merged
+}
+
+func renderLabelsBlock(labels map[string]string, indent int) string {
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	prefix := strings.Repeat(" ", indent)
+
+	var b strings.Builder
+	for _, key := range keys {
+		fmt.Fprintf(&b, "%s%s: %s\n", prefix, key, labels[key])
+	}
+	return b.String()
+}
+
+func deploymentName(appName, tenantName, topicName string) string {
+	return fmt.Sprintf("%s-%s-%s-opa", sanitizeName(appName), sanitizeName(tenantName), sanitizeName(topicName))
 }
 
 func topicConfigMapName(appName, tenantName, topicName string) string {
