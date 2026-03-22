@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -38,11 +40,36 @@ func LoadSpec(path string) (Specification, error) {
 	if err != nil {
 		return Specification{}, fmt.Errorf("read spec: %w", err)
 	}
-	var spec Specification
-	if err := json.Unmarshal(payload, &spec); err != nil {
+	spec, err := DecodeSpec(payload)
+	if err != nil {
 		return Specification{}, fmt.Errorf("decode spec: %w", err)
 	}
 	return spec, nil
+}
+
+// DecodeSpec decodes a specification from JSON and rejects unknown fields.
+func DecodeSpec(payload []byte) (Specification, error) {
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	dec.DisallowUnknownFields()
+
+	var spec Specification
+	if err := dec.Decode(&spec); err != nil {
+		return Specification{}, err
+	}
+	if err := ensureSingleJSONValue(dec); err != nil {
+		return Specification{}, err
+	}
+	return spec, nil
+}
+
+func ensureSingleJSONValue(dec *json.Decoder) error {
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("spec must contain exactly one JSON object")
+		}
+		return err
+	}
+	return nil
 }
 
 func Validate(spec Specification) []string {

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/agent19710101/opa-admin-layer/internal/admin"
@@ -54,8 +55,13 @@ func decodeSpec(w http.ResponseWriter, r *http.Request) (admin.Specification, bo
 		return admin.Specification{}, false
 	}
 	defer r.Body.Close()
-	var spec admin.Specification
-	if err := json.NewDecoder(r.Body).Decode(&spec); err != nil {
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return admin.Specification{}, false
+	}
+	spec, err := admin.DecodeSpec(payload)
+	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return admin.Specification{}, false
 	}
