@@ -1,6 +1,6 @@
 # OpenSpec agent notes
 
-OpenSpec CLI unavailable in this repository bootstrap. Structure is mirrored manually.
+OpenSpec CLI is available in this repository and validates the active change set.
 
 Rules for future changes:
 
