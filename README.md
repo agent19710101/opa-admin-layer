@@ -101,6 +101,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - rendered Kubernetes Deployment/ConfigMap/Service names validated up front so spec, tenant, and topic identifiers cannot produce invalid workload object names
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
+- optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 
 When `render` is called with `-outdir`, it also materializes:
 
@@ -112,7 +113,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata:
+Example shared Service metadata and OPA resource defaults:
 
 ```json
 {
@@ -121,6 +122,15 @@ Example shared Service metadata:
     "serviceAnnotations": {
       "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
       "example.com/health-check-path": "/health?plugins"
+    },
+    "opaResources": {
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      },
+      "limits": {
+        "memory": "512Mi"
+      }
     }
   }
 }

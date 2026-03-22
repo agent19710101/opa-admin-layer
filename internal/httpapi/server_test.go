@@ -88,9 +88,9 @@ func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
 	}
 }
 
-func TestValidateEndpointRejectsInvalidServiceTypeAndServiceAnnotationKey(t *testing.T) {
+func TestValidateEndpointRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","serviceAnnotations":{"Example.com/internal":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","serviceAnnotations":{"Example.com/internal":"true"},"opaResources":{"requests":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -103,5 +103,8 @@ func TestValidateEndpointRejectsInvalidServiceTypeAndServiceAnnotationKey(t *tes
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("serviceAnnotations key")) {
 		t.Fatalf("expected invalid service annotation key error, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("opaResources.requests")) {
+		t.Fatalf("expected invalid opaResources requests error, got %s", rec.Body.String())
 	}
 }

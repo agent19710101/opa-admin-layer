@@ -22,6 +22,7 @@
 10. Generated plans should expose each tenant/topic OPA workload through a stable Kubernetes Service derived from the normalized listen port.
 11. Operators should be able to select the rendered Kubernetes Service type from the admin spec without post-processing manifests, while unsupported service modes are rejected during validation.
 12. Operators should be able to attach shared Kubernetes Service annotations from the admin spec so common load-balancer and controller integrations do not require downstream patches.
+13. Operators should be able to declare shared OPA container CPU/memory requests and limits in the admin spec so rendered Deployments can carry baseline scheduling defaults without manual patching.
 
 ## Operational requirements
 

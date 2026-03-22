@@ -26,13 +26,24 @@ type Specification struct {
 }
 
 type ControlPlane struct {
-	BaseServiceURL       string            `json:"baseServiceURL"`
-	BundlePrefix         string            `json:"bundlePrefix"`
-	DefaultDecisionPath  string            `json:"defaultDecisionPath"`
-	DefaultListenAddress string            `json:"defaultListenAddress"`
-	OPAImage             string            `json:"opaImage"`
-	ServiceType          string            `json:"serviceType"`
-	ServiceAnnotations   map[string]string `json:"serviceAnnotations"`
+	BaseServiceURL       string               `json:"baseServiceURL"`
+	BundlePrefix         string               `json:"bundlePrefix"`
+	DefaultDecisionPath  string               `json:"defaultDecisionPath"`
+	DefaultListenAddress string               `json:"defaultListenAddress"`
+	OPAImage             string               `json:"opaImage"`
+	ServiceType          string               `json:"serviceType"`
+	ServiceAnnotations   map[string]string    `json:"serviceAnnotations"`
+	OPAResources         ResourceRequirements `json:"opaResources"`
+}
+
+type ResourceRequirements struct {
+	Requests *ResourceList `json:"requests,omitempty"`
+	Limits   *ResourceList `json:"limits,omitempty"`
+}
+
+type ResourceList struct {
+	CPU    string `json:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty"`
 }
 
 type Tenant struct {
@@ -101,6 +112,7 @@ func Validate(spec Specification) []string {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
 		}
 	}
+	issues = append(issues, validateOPAResources(spec.ControlPlane.OPAResources)...)
 	if len(spec.Tenants) == 0 {
 		issues = append(issues, "spec.tenants must contain at least one tenant")
 	}
@@ -237,6 +249,23 @@ func validateRenderedResourceName(name string) error {
 	return nil
 }
 
+func validateOPAResources(resources ResourceRequirements) []string {
+	var issues []string
+	issues = append(issues, validateResourceList("controlPlane.opaResources.requests", resources.Requests)...)
+	issues = append(issues, validateResourceList("controlPlane.opaResources.limits", resources.Limits)...)
+	return issues
+}
+
+func validateResourceList(path string, values *ResourceList) []string {
+	if values == nil {
+		return nil
+	}
+	if strings.TrimSpace(values.CPU) == "" && strings.TrimSpace(values.Memory) == "" {
+		return []string{fmt.Sprintf("%s must set cpu and/or memory", path)}
+	}
+	return nil
+}
+
 func normalize(spec Specification) Specification {
 	normalized := spec
 	if strings.TrimSpace(normalized.ControlPlane.BundlePrefix) == "" {
@@ -254,6 +283,7 @@ func normalize(spec Specification) Specification {
 	if strings.TrimSpace(normalized.ControlPlane.ServiceType) == "" {
 		normalized.ControlPlane.ServiceType = "ClusterIP"
 	}
+	normalized.ControlPlane.OPAResources = normalizeResourceRequirements(normalized.ControlPlane.OPAResources)
 	for i := range normalized.Tenants {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)
 		for j := range normalized.Tenants[i].Topics {
@@ -267,4 +297,22 @@ func normalize(spec Specification) Specification {
 		}
 	}
 	return normalized
+}
+
+func normalizeResourceRequirements(resources ResourceRequirements) ResourceRequirements {
+	resources.Requests = normalizeResourceList(resources.Requests)
+	resources.Limits = normalizeResourceList(resources.Limits)
+	return resources
+}
+
+func normalizeResourceList(values *ResourceList) *ResourceList {
+	if values == nil {
+		return nil
+	}
+	values.CPU = strings.TrimSpace(values.CPU)
+	values.Memory = strings.TrimSpace(values.Memory)
+	if values.CPU == "" && values.Memory == "" {
+		return nil
+	}
+	return values
 }

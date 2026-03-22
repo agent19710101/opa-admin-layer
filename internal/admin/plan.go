@@ -64,7 +64,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, normalized.ControlPlane.OPAResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, containerPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
 			})
 		}
@@ -98,7 +98,7 @@ metadata:
 `, name, renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string) string {
+func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
 	containerPort := listenAddressPort(listenAddress)
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
@@ -133,7 +133,7 @@ metadata:
             httpGet:
               path: /health
               port: %d
-          volumeMounts:
+%s          volumeMounts:
             - name: opa-config
               mountPath: /config
               readOnly: true
@@ -142,7 +142,7 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
+`, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
 func renderServiceYAML(name, workloadName, serviceType string, port int, labels, annotations map[string]string) string {
@@ -161,6 +161,45 @@ metadata:
       targetPort: %d
       protocol: TCP
 `, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, workloadName, port, port)
+}
+
+func renderResourcesBlock(resources ResourceRequirements, indent int) string {
+	var b strings.Builder
+	prefix := strings.Repeat(" ", indent)
+	if rendered := renderResourceListBlock("requests", resources.Requests, indent+2); rendered != "" {
+		if b.Len() == 0 {
+			fmt.Fprintf(&b, "%sresources:\n", prefix)
+		}
+		b.WriteString(rendered)
+	}
+	if rendered := renderResourceListBlock("limits", resources.Limits, indent+2); rendered != "" {
+		if b.Len() == 0 {
+			fmt.Fprintf(&b, "%sresources:\n", prefix)
+		}
+		b.WriteString(rendered)
+	}
+	return b.String()
+}
+
+func renderResourceListBlock(name string, values *ResourceList, indent int) string {
+	if values == nil {
+		return ""
+	}
+	var b strings.Builder
+	prefix := strings.Repeat(" ", indent)
+	if cpu := strings.TrimSpace(values.CPU); cpu != "" {
+		fmt.Fprintf(&b, "%s%s:\n", prefix, name)
+		fmt.Fprintf(&b, "%s  cpu: %s\n", prefix, strconv.Quote(cpu))
+		if memory := strings.TrimSpace(values.Memory); memory != "" {
+			fmt.Fprintf(&b, "%s  memory: %s\n", prefix, strconv.Quote(memory))
+		}
+		return b.String()
+	}
+	if memory := strings.TrimSpace(values.Memory); memory != "" {
+		fmt.Fprintf(&b, "%s%s:\n", prefix, name)
+		fmt.Fprintf(&b, "%s  memory: %s\n", prefix, strconv.Quote(memory))
+	}
+	return b.String()
 }
 
 func listenAddressPort(listenAddress string) int {

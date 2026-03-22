@@ -9,6 +9,15 @@
     "serviceType": "ClusterIP",
     "serviceAnnotations": {
       "example.com/health-check-path": "/health?plugins"
+    },
+    "opaResources": {
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      },
+      "limits": {
+        "memory": "512Mi"
+      }
     }
   },
   "tenants": [

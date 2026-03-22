@@ -78,6 +78,44 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 		}
 	}
+	if strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "resources:") {
+		t.Fatalf("expected deployment manifest to omit resources block by default, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
+	}
+}
+
+func TestBuildPlanUsesConfiguredOPAResources(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m", Memory: "128Mi"},
+				Limits:   &ResourceList{Memory: "512Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	for _, expected := range []string{
+		"resources:",
+		"requests:",
+		`cpu: "100m"`,
+		`memory: "128Mi"`,
+		"limits:",
+		`memory: "512Mi"`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
+		}
+	}
 }
 
 func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
@@ -319,7 +357,7 @@ func TestValidateRejectsRenderedResourceNamesThatExceedLengthBudget(t *testing.T
 	}
 }
 
-func TestValidateRejectsInvalidServiceTypeAndAnnotationKey(t *testing.T) {
+func TestValidateRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
@@ -327,6 +365,9 @@ func TestValidateRejectsInvalidServiceTypeAndAnnotationKey(t *testing.T) {
 			ServiceType:    "ExternalName",
 			ServiceAnnotations: map[string]string{
 				"Example.com/internal": "true",
+			},
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{},
 			},
 		},
 		Tenants: []Tenant{{
@@ -345,5 +386,8 @@ func TestValidateRejectsInvalidServiceTypeAndAnnotationKey(t *testing.T) {
 	}
 	if !strings.Contains(joined, `controlPlane.serviceAnnotations key "Example.com/internal" is invalid`) {
 		t.Fatalf("expected invalid service annotation key issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, "controlPlane.opaResources.requests must set cpu and/or memory") {
+		t.Fatalf("expected empty opaResources requests issue, got %#v", issues)
 	}
 }
