@@ -56,6 +56,16 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "configMap:") || !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "mountPath: /config") {
 		t.Fatalf("expected deployment manifest to mount rendered config map, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 	}
+	for _, expected := range []string{
+		"containerPort: 8181",
+		"path: /health?plugins",
+		"path: /health\n",
+		"port: 8181",
+	} {
+		if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, plan.Tenants[0].Topics[0].DeploymentManifestYAML)
+		}
+	}
 }
 
 func TestBuildPlanUsesConfiguredOPAImage(t *testing.T) {
@@ -80,6 +90,33 @@ func TestBuildPlanUsesConfiguredOPAImage(t *testing.T) {
 	}
 	if strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, DefaultOPAImage) {
 		t.Fatalf("expected deployment manifest to avoid fallback image when override is provided")
+	}
+}
+
+func TestBuildPlanRendersProbesUsingExplicitListenAddressPort(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:       "https://control.example.com",
+			DefaultListenAddress: "127.0.0.1:8282",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if !strings.Contains(deployment, "containerPort: 8282") {
+		t.Fatalf("expected explicit listen port to render as containerPort, got %q", deployment)
+	}
+	if count := strings.Count(deployment, "port: 8282"); count != 2 {
+		t.Fatalf("expected both probes to target explicit listen port, got count=%d manifest=%q", count, deployment)
 	}
 }
 

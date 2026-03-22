@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -93,6 +95,7 @@ metadata:
 }
 
 func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string) string {
+	containerPort := listenAddressPort(listenAddress)
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -114,6 +117,18 @@ metadata:
       containers:
         - name: opa
           image: %s
+          ports:
+            - name: http
+              containerPort: %d
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health?plugins
+              port: %d
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: %d
           volumeMounts:
             - name: opa-config
               mountPath: /config
@@ -123,7 +138,31 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, listenAddress)
+`, name, renderLabelsBlock(labels, 4), name, renderLabelsBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, listenAddress)
+}
+
+func listenAddressPort(listenAddress string) int {
+	trimmed := strings.TrimSpace(listenAddress)
+	if trimmed == "" {
+		return 8181
+	}
+	if strings.HasPrefix(trimmed, ":") {
+		if port, err := strconv.Atoi(strings.TrimPrefix(trimmed, ":")); err == nil {
+			return port
+		}
+	}
+	host, portText, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return 8181
+	}
+	if host == "" && portText == "" {
+		return 8181
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return 8181
+	}
+	return port
 }
 
 func builtInTopicLabels(appName, tenantName, topicName string) map[string]string {
