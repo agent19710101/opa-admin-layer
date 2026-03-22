@@ -7,4 +7,5 @@
 - A deployment manifest that references `/config/opa-config.yaml` without provisioning it is not runnable and pushes avoidable integration work onto operators.
 - Deployment health probes now assume the normalized listen address exposes OPA HTTP health endpoints on the derived port; future HTTPS or auth-protected control-plane patterns may need probe configurability.
 - A default ClusterIP Service is enough for in-cluster reachability today, but future edge, mesh, or multi-port exposure needs may require service annotations or type configurability.
+- Topic labels are now validated against Kubernetes syntax before render, but future metadata expansion (annotations, selectors, namespaces) will need equally explicit guardrails to avoid generating invalid manifests.
 - Release automation exists locally, but GitHub push/release execution still depends on remote repo creation and permissions.

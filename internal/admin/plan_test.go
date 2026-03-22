@@ -179,3 +179,54 @@ func TestBuildPlanPropagatesTopicLabelsIntoRenderedManifests(t *testing.T) {
 		t.Fatalf("expected service selector/labels to retain built-in identity, got %q", service)
 	}
 }
+
+func TestValidateRejectsInvalidTopicLabelKeyAndValue(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"Example.com/owner": "platform!",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	if len(issues) != 2 {
+		t.Fatalf("expected 2 issues, got %d: %#v", len(issues), issues)
+	}
+	if !strings.Contains(strings.Join(issues, "\n"), `label key "Example.com/owner" is invalid`) {
+		t.Fatalf("expected invalid label key issue, got %#v", issues)
+	}
+	if !strings.Contains(strings.Join(issues, "\n"), `label "Example.com/owner" has invalid value "platform!"`) {
+		t.Fatalf("expected invalid label value issue, got %#v", issues)
+	}
+}
+
+func TestBuildPlanRejectsInvalidTopicLabels(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"owner": "platform!",
+				},
+			}},
+		}},
+	}
+
+	_, err := BuildPlan(spec)
+	if err == nil {
+		t.Fatal("expected BuildPlan to reject invalid topic labels")
+	}
+	if !strings.Contains(err.Error(), `label "owner" has invalid value "platform!"`) {
+		t.Fatalf("expected invalid label error, got %v", err)
+	}
+}

@@ -6,11 +6,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 )
 
 const DefaultOPAImage = "openpolicyagent/opa:1.12.1"
+
+var (
+	kubernetesLabelNamePattern  = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9_.-]{0,61}[A-Za-z0-9])?$`)
+	kubernetesLabelValuePattern = regexp.MustCompile(`^([A-Za-z0-9]([A-Za-z0-9_.-]{0,61}[A-Za-z0-9])?)?$`)
+	dns1123LabelPattern         = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+)
 
 type Specification struct {
 	Name         string       `json:"name"`
@@ -115,10 +122,74 @@ func Validate(spec Specification) []string {
 			} else {
 				seenTopics[topicKey] = struct{}{}
 			}
+			for labelKey, labelValue := range topic.Labels {
+				if err := validateKubernetesLabelKey(labelKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q label key %q is invalid: %v", tenantName, topicName, labelKey, err))
+				}
+				if err := validateKubernetesLabelValue(labelValue); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
+				}
+			}
 		}
 	}
 	sort.Strings(issues)
 	return issues
+}
+
+func validateKubernetesLabelKey(key string) error {
+	parts := strings.Split(key, "/")
+	switch len(parts) {
+	case 1:
+		return validateKubernetesLabelName(parts[0])
+	case 2:
+		if err := validateDNS1123Subdomain(parts[0]); err != nil {
+			return fmt.Errorf("prefix must be a valid DNS subdomain: %w", err)
+		}
+		if err := validateKubernetesLabelName(parts[1]); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return fmt.Errorf("must contain at most one '/' separator")
+	}
+}
+
+func validateKubernetesLabelName(name string) error {
+	if len(name) == 0 {
+		return fmt.Errorf("name must not be empty")
+	}
+	if len(name) > 63 {
+		return fmt.Errorf("name must be 63 characters or fewer")
+	}
+	if !kubernetesLabelNamePattern.MatchString(name) {
+		return fmt.Errorf("name must start and end with an alphanumeric character and contain only alphanumerics, '-', '_', or '.'")
+	}
+	return nil
+}
+
+func validateKubernetesLabelValue(value string) error {
+	if len(value) > 63 {
+		return fmt.Errorf("value must be 63 characters or fewer")
+	}
+	if !kubernetesLabelValuePattern.MatchString(value) {
+		return fmt.Errorf("value must be empty or start and end with an alphanumeric character and contain only alphanumerics, '-', '_', or '.'")
+	}
+	return nil
+}
+
+func validateDNS1123Subdomain(value string) error {
+	if len(value) == 0 {
+		return fmt.Errorf("must not be empty")
+	}
+	if len(value) > 253 {
+		return fmt.Errorf("must be 253 characters or fewer")
+	}
+	for _, label := range strings.Split(value, ".") {
+		if !dns1123LabelPattern.MatchString(label) {
+			return fmt.Errorf("segment %q must match DNS-1123 label syntax", label)
+		}
+	}
+	return nil
 }
 
 func normalize(spec Specification) Specification {

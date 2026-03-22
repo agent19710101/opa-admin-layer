@@ -12,6 +12,7 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 - Production deployments should pin versions, prefer TLS, and be explicit about bundle distribution and observability.
 - Topic boundaries are the right mental model for routing policy/data updates to the right consumers.
 - Topic-scoped metadata is operationally useful only if it survives plan rendering and reaches emitted deployment artifacts.
+- Propagated Kubernetes metadata needs syntax validation at ingest time; otherwise the renderer can faithfully emit unusable manifests.
 
 ## Locked project decisions
 

@@ -47,3 +47,5 @@ Architecture update (2026-03-22, topic label propagation): topic labels are now 
 Architecture update (2026-03-22, deployment health probes): rendered Deployments now derive an OPA container port from the normalized listen address and use that same port for default readiness and liveness probes. This keeps the existing single-container shape while making rollout readiness and restart signaling part of the generated plan instead of downstream patch work.
 
 Architecture update (2026-03-22, service manifest rendering): each tenant/topic render now emits a Kubernetes Service that targets the generated OPA Deployment on the same derived HTTP port. This keeps the plan self-contained for in-cluster reachability without expanding the spec surface with early service-type or ingress decisions.
+
+Architecture update (2026-03-22, topic label validation): topic labels remain the right operator metadata escape hatch, but they now enter the system through a stricter contract. The validation layer rejects Kubernetes-invalid label keys and values before render so propagated labels cannot silently poison ConfigMap, Deployment, or Service manifests.

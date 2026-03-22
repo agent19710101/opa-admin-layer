@@ -97,7 +97,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - generated Kubernetes ConfigMap YAML carrying the OPA config
 - generated Kubernetes deployment YAML for a sidecar-style OPA deployment
 - declared OPA container ports and default readiness/liveness probes derived from the normalized listen address
-- propagated per-topic Kubernetes labels from the admin spec into generated manifests
+- propagated per-topic Kubernetes labels from the admin spec into generated manifests, with Kubernetes label syntax validation at ingest time
 
 When `render` is called with `-outdir`, it also materializes:
 
@@ -108,4 +108,3 @@ When `render` is called with `-outdir`, it also materializes:
 - `<tenant>/<topic>/service.yaml`
 
 This slice is exposed through both the CLI and the REST API.
-osed through both the CLI and the REST API.
