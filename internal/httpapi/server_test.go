@@ -1,0 +1,41 @@
+package httpapi
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/agent19710101/opa-admin-layer/internal/admin"
+)
+
+func TestValidateEndpoint(t *testing.T) {
+	h := NewHandler()
+	spec := admin.Specification{
+		Name:         "demo",
+		ControlPlane: admin.ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants:      []admin.Tenant{{Name: "tenant-a", Topics: []admin.Topic{{Name: "billing"}}}},
+	}
+	body, _ := json.Marshal(spec)
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPlanEndpointRejectsInvalidPayload(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"","tenants":[]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
