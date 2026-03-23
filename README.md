@@ -109,7 +109,8 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
-- Kubernetes quantity syntax validation for `controlPlane.opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
+- optional per-topic `opaResources` overrides that merge over shared defaults, letting one topic raise/lower CPU or memory without restating the full resource profile
+- Kubernetes quantity syntax validation for both shared and per-topic `opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
 - absolute HTTP(S) validation for `controlPlane.baseServiceURL` so rendered bundle URLs and OPA config always point at a real control-plane endpoint shape
 - explicit `controlPlane.defaultListenAddress` validation for `:port`, `host:port`, and bracketed IPv6 `host:port` so rendered `--addr`, Deployment probe ports, and Service ports cannot drift apart on malformed input
 
@@ -123,7 +124,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata and OPA resource defaults (using standard Kubernetes quantity strings):
+Example shared Service metadata, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
@@ -142,6 +143,21 @@ Example shared Service metadata and OPA resource defaults (using standard Kubern
         "memory": "512Mi"
       }
     }
-  }
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing",
+          "opaResources": {
+            "requests": {
+              "memory": "256Mi"
+            }
+          }
+        }
+      ]
+    }
+  ]
 }
 ```

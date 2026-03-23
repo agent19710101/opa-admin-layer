@@ -246,6 +246,51 @@ func TestBuildPlanUsesConfiguredOPAResources(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicOPAResourcesOverSharedDefaults(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m", Memory: "128Mi"},
+				Limits:   &ResourceList{Memory: "512Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				OPAResources: ResourceRequirements{
+					Requests: &ResourceList{Memory: "256Mi"},
+					Limits:   &ResourceList{CPU: "750m"},
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	for _, expected := range []string{
+		"resources:",
+		"requests:",
+		`cpu: "100m"`,
+		`memory: "256Mi"`,
+		"limits:",
+		`cpu: "750m"`,
+		`memory: "512Mi"`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
+		}
+	}
+	if strings.Contains(deployment, `memory: "128Mi"`) {
+		t.Fatalf("expected topic request memory override to replace shared value, got %q", deployment)
+	}
+}
+
 func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
@@ -545,6 +590,34 @@ func TestValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
 	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("expected invalid quantity issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
+func TestValidateRejectsEmptyAndInvalidTopicOPAResources(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				OPAResources: ResourceRequirements{
+					Requests: &ResourceList{},
+					Limits:   &ResourceList{Memory: "0x20"},
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`tenant "tenant-a" topic "billing" opaResources.requests must set cpu and/or memory`,
+		`tenant "tenant-a" topic "billing" opaResources.limits.memory is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected topic opaResources issue %q, got %#v", expected, issues)
 		}
 	}
 }

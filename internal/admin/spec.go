@@ -58,10 +58,11 @@ type Tenant struct {
 }
 
 type Topic struct {
-	Name           string            `json:"name" yaml:"name"`
-	BundleResource string            `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
-	DecisionPath   string            `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
-	Labels         map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Name           string               `json:"name" yaml:"name"`
+	BundleResource string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath   string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels         map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	OPAResources   ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -185,6 +186,7 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			issues = append(issues, validateOPAResourcesAtPath(fmt.Sprintf("tenant %q topic %q opaResources", tenantName, topicName), topic.OPAResources)...)
 			for resourceKind, resourceName := range map[string]string{
 				"deployment": deploymentName(spec.Name, tenantName, topicName),
 				"configmap":  topicConfigMapName(spec.Name, tenantName, topicName),
@@ -335,9 +337,13 @@ func validateRenderedResourceName(name string) error {
 }
 
 func validateOPAResources(resources ResourceRequirements) []string {
+	return validateOPAResourcesAtPath("controlPlane.opaResources", resources)
+}
+
+func validateOPAResourcesAtPath(path string, resources ResourceRequirements) []string {
 	var issues []string
-	issues = append(issues, validateResourceList("controlPlane.opaResources.requests", resources.Requests)...)
-	issues = append(issues, validateResourceList("controlPlane.opaResources.limits", resources.Limits)...)
+	issues = append(issues, validateResourceList(path+".requests", resources.Requests)...)
+	issues = append(issues, validateResourceList(path+".limits", resources.Limits)...)
 	return issues
 }
 
@@ -398,6 +404,7 @@ func normalize(spec Specification) Specification {
 			if strings.TrimSpace(normalized.Tenants[i].Topics[j].BundleResource) == "" {
 				normalized.Tenants[i].Topics[j].BundleResource = fmt.Sprintf("%s/%s/%s.tar.gz", strings.Trim(normalized.ControlPlane.BundlePrefix, "/"), normalized.Tenants[i].Name, normalized.Tenants[i].Topics[j].Name)
 			}
+			normalized.Tenants[i].Topics[j].OPAResources = normalizeResourceRequirements(normalized.Tenants[i].Topics[j].OPAResources)
 		}
 	}
 	return normalized
@@ -419,4 +426,34 @@ func normalizeResourceList(values *ResourceList) *ResourceList {
 		return nil
 	}
 	return values
+}
+
+func mergeResourceRequirements(base, override ResourceRequirements) ResourceRequirements {
+	return ResourceRequirements{
+		Requests: mergeResourceList(base.Requests, override.Requests),
+		Limits:   mergeResourceList(base.Limits, override.Limits),
+	}
+}
+
+func mergeResourceList(base, override *ResourceList) *ResourceList {
+	if base == nil && override == nil {
+		return nil
+	}
+	merged := &ResourceList{}
+	if base != nil {
+		merged.CPU = strings.TrimSpace(base.CPU)
+		merged.Memory = strings.TrimSpace(base.Memory)
+	}
+	if override != nil {
+		if cpu := strings.TrimSpace(override.CPU); cpu != "" {
+			merged.CPU = cpu
+		}
+		if memory := strings.TrimSpace(override.Memory); memory != "" {
+			merged.Memory = memory
+		}
+	}
+	if merged.CPU == "" && merged.Memory == "" {
+		return nil
+	}
+	return merged
 }

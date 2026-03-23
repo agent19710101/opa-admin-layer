@@ -58,6 +58,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			builtInLabels := builtInTopicLabels(normalized.Name, tenant.Name, topic.Name)
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
+			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -66,7 +67,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, normalized.ControlPlane.OPAResources),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, listenPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
 			})
 		}

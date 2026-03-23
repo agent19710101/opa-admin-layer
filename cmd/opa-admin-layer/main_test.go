@@ -12,14 +12,25 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 	spec := `{
   "name": "demo",
   "controlPlane": {
-    "baseServiceURL": "https://control.example.com"
+    "baseServiceURL": "https://control.example.com",
+    "opaResources": {
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
+      }
+    }
   },
   "tenants": [
     {
       "name": "tenant-a",
       "topics": [
         {
-          "name": "billing"
+          "name": "billing",
+          "opaResources": {
+            "requests": {
+              "memory": "256Mi"
+            }
+          }
         }
       ]
     }
@@ -46,6 +57,21 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s to exist: %v", path, err)
 		}
+	}
+
+	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))
+	if err != nil {
+		t.Fatalf("read deployment: %v", err)
+	}
+	deployment := string(deploymentBytes)
+	if !strings.Contains(deployment, `cpu: "100m"`) {
+		t.Fatalf("expected shared CPU request in rendered deployment, got %s", deployment)
+	}
+	if !strings.Contains(deployment, `memory: "256Mi"`) {
+		t.Fatalf("expected topic memory override in rendered deployment, got %s", deployment)
+	}
+	if strings.Contains(deployment, `memory: "128Mi"`) {
+		t.Fatalf("expected topic memory override to replace shared value, got %s", deployment)
 	}
 }
 

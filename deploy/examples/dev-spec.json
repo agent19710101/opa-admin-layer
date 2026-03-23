@@ -29,6 +29,11 @@
           "labels": {
             "environment": "dev",
             "owner": "platform"
+          },
+          "opaResources": {
+            "requests": {
+              "memory": "256Mi"
+            }
           }
         },
         {"name": "support", "decisionPath": "support/authz/allow"}
