@@ -111,6 +111,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 - optional per-topic `opaResources` overrides that merge over shared defaults, letting one topic raise/lower CPU or memory without restating the full resource profile
 - Kubernetes quantity syntax validation for both shared and per-topic `opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
+- effective OPA resource budget validation so shared and inherited topic CPU/memory requests cannot exceed their matching limits after merge
 - absolute HTTP(S) validation for `controlPlane.baseServiceURL` so rendered bundle URLs and OPA config always point at a real control-plane endpoint shape
 - explicit `controlPlane.defaultListenAddress` validation for `:port`, `host:port`, and bracketed IPv6 `host:port` so rendered `--addr`, Deployment probe ports, and Service ports cannot drift apart on malformed input
 
@@ -155,18 +156,6 @@ Example shared Service metadata, per-topic Service overrides, shared OPA resourc
             "example.com/health-check-path": "/billing-health",
             "example.com/exposure": "public"
           },
-          "opaResources": {
-            "requests": {
-              "memory": "256Mi"
-            }
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-        "name": "billing",
           "opaResources": {
             "requests": {
               "memory": "256Mi"

@@ -250,3 +250,42 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
 		t.Fatalf("expected topic service type override to replace shared type, got %s", service)
 	}
 }
+
+func TestRunValidateRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "opaResources": {
+      "requests": {
+        "cpu": "1000m"
+      },
+      "limits": {
+        "cpu": "500m"
+      }
+    }
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	err := run([]string{"validate", "-input", specPath})
+	if err == nil {
+		t.Fatal("expected validate to fail when OPA resource requests exceed limits")
+	}
+	if !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected resource budget validation failure, got %v", err)
+	}
+}

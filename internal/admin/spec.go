@@ -149,6 +149,7 @@ func Validate(spec Specification) []string {
 		}
 	}
 	issues = append(issues, validateOPAResources(spec.ControlPlane.OPAResources)...)
+	issues = append(issues, validateOPAResourceBudgetAtPath("controlPlane.opaResources", normalizeResourceRequirements(spec.ControlPlane.OPAResources))...)
 	if len(spec.Tenants) == 0 {
 		issues = append(issues, "spec.tenants must contain at least one tenant")
 	}
@@ -197,6 +198,8 @@ func Validate(spec Specification) []string {
 				}
 			}
 			issues = append(issues, validateOPAResourcesAtPath(fmt.Sprintf("tenant %q topic %q opaResources", tenantName, topicName), topic.OPAResources)...)
+			effectiveResources := mergeResourceRequirements(normalizeResourceRequirements(spec.ControlPlane.OPAResources), normalizeResourceRequirements(topic.OPAResources))
+			issues = append(issues, validateOPAResourceBudgetAtPath(fmt.Sprintf("tenant %q topic %q effective opaResources", tenantName, topicName), effectiveResources)...)
 			for resourceKind, resourceName := range map[string]string{
 				"deployment": deploymentName(spec.Name, tenantName, topicName),
 				"configmap":  topicConfigMapName(spec.Name, tenantName, topicName),
@@ -382,6 +385,43 @@ func validateResourceList(path string, values *ResourceList) []string {
 func validateKubernetesQuantity(value string) error {
 	if _, err := resource.ParseQuantity(value); err != nil {
 		return err
+	}
+	return nil
+}
+
+func validateOPAResourceBudgetAtPath(path string, resources ResourceRequirements) []string {
+	var issues []string
+	issues = append(issues, validateResourceBudget(path+".cpu", resources.Requests, resources.Limits, func(values *ResourceList) string {
+		if values == nil {
+			return ""
+		}
+		return values.CPU
+	})...)
+	issues = append(issues, validateResourceBudget(path+".memory", resources.Requests, resources.Limits, func(values *ResourceList) string {
+		if values == nil {
+			return ""
+		}
+		return values.Memory
+	})...)
+	return issues
+}
+
+func validateResourceBudget(path string, requests, limits *ResourceList, pick func(*ResourceList) string) []string {
+	requestValue := strings.TrimSpace(pick(requests))
+	limitValue := strings.TrimSpace(pick(limits))
+	if requestValue == "" || limitValue == "" {
+		return nil
+	}
+	requestQuantity, err := resource.ParseQuantity(requestValue)
+	if err != nil {
+		return nil
+	}
+	limitQuantity, err := resource.ParseQuantity(limitValue)
+	if err != nil {
+		return nil
+	}
+	if requestQuantity.Cmp(limitQuantity) > 0 {
+		return []string{fmt.Sprintf("%s request %q must not exceed limit %q", path, requestValue, limitValue)}
 	}
 	return nil
 }

@@ -694,3 +694,64 @@ func TestValidateRejectsEmptyAndInvalidTopicOPAResources(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "1000m", Memory: "512Mi"},
+				Limits:   &ResourceList{CPU: "500m", Memory: "256Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.opaResources.cpu request "1000m" must not exceed limit "500m"`,
+		`controlPlane.opaResources.memory request "512Mi" must not exceed limit "256Mi"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected opaResources budget issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
+func TestValidateRejectsTopicOPAResourcesWhenMergedRequestsExceedInheritedLimits(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m", Memory: "128Mi"},
+				Limits:   &ResourceList{CPU: "500m", Memory: "256Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				OPAResources: ResourceRequirements{
+					Requests: &ResourceList{CPU: "750m", Memory: "512Mi"},
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`tenant "tenant-a" topic "billing" effective opaResources.cpu request "750m" must not exceed limit "500m"`,
+		`tenant "tenant-a" topic "billing" effective opaResources.memory request "512Mi" must not exceed limit "256Mi"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected merged topic opaResources budget issue %q, got %#v", expected, issues)
+		}
+	}
+}
