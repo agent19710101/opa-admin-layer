@@ -297,23 +297,28 @@ func validateKubernetesServiceType(serviceType string) error {
 }
 
 func validateListenAddress(listenAddress string) error {
+	_, err := parseListenAddressPort(listenAddress)
+	return err
+}
+
+func parseListenAddressPort(listenAddress string) (int, error) {
 	trimmed := strings.TrimSpace(listenAddress)
 	if trimmed == "" {
-		return nil
+		return 8181, nil
 	}
 
 	_, portText, err := net.SplitHostPort(trimmed)
 	if err != nil {
-		return fmt.Errorf("must use :port, host:port, or [ipv6]:port syntax")
+		return 0, fmt.Errorf("must use :port, host:port, or [ipv6]:port syntax")
 	}
 	port, err := strconv.Atoi(portText)
 	if err != nil {
-		return fmt.Errorf("port must be numeric")
+		return 0, fmt.Errorf("port must be numeric")
 	}
 	if port < 1 || port > 65535 {
-		return fmt.Errorf("port must be between 1 and 65535")
+		return 0, fmt.Errorf("port must be between 1 and 65535")
 	}
-	return nil
+	return port, nil
 }
 
 func validateRenderedResourceName(name string) error {

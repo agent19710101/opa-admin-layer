@@ -97,6 +97,42 @@ func TestValidateRejectsInvalidDefaultListenAddress(t *testing.T) {
 	}
 }
 
+func TestParseListenAddressPortUsesSharedStrictContract(t *testing.T) {
+	tests := map[string]struct {
+		listenAddress string
+		wantPort      int
+		wantErr       string
+	}{
+		"defaultEmpty":      {listenAddress: "", wantPort: 8181},
+		"defaultWhitespace": {listenAddress: "  ", wantPort: 8181},
+		"portOnly":          {listenAddress: ":8181", wantPort: 8181},
+		"hostPort":          {listenAddress: "127.0.0.1:8282", wantPort: 8282},
+		"ipv6HostPort":      {listenAddress: "[::1]:8383", wantPort: 8383},
+		"missingPort":       {listenAddress: "localhost", wantErr: "must use :port, host:port, or [ipv6]:port syntax"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := parseListenAddressPort(tc.listenAddress)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error %q, got nil", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseListenAddressPort returned error: %v", err)
+			}
+			if got != tc.wantPort {
+				t.Fatalf("port mismatch: got %d want %d", got, tc.wantPort)
+			}
+		})
+	}
+}
+
 func TestValidateRejectsDuplicateTenantAndTopic(t *testing.T) {
 	spec := Specification{
 		Name:         "demo",

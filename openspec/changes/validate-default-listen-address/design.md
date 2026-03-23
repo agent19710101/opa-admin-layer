@@ -34,5 +34,5 @@ Empty values remain allowed and continue to normalize to `:8181`.
 ## Consequences
 
 - CLI and REST validation will reject malformed listen addresses before plan rendering.
-- Probe, Service, and container port derivation can rely on a stricter shared contract instead of best-effort fallback behavior for user-supplied values.
+- Probe, Service, and container port derivation now reuse the same strict parser as validation and default normalization instead of keeping a separate best-effort fallback path in the renderer.
 - Future listen-address expansions such as Unix sockets or scheme-bearing URLs will require an intentional contract update instead of being partially accepted by accident.

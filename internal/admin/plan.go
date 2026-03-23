@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,6 +39,10 @@ func BuildPlan(spec Specification) (Plan, error) {
 		return Plan{}, errors.New(strings.Join(issues, "; "))
 	}
 	normalized := normalize(spec)
+	listenPort, err := parseListenAddressPort(normalized.ControlPlane.DefaultListenAddress)
+	if err != nil {
+		return Plan{}, fmt.Errorf("normalized controlPlane.defaultListenAddress is invalid: %w", err)
+	}
 	plan := Plan{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Name:        normalized.Name,
@@ -55,7 +58,6 @@ func BuildPlan(spec Specification) (Plan, error) {
 			builtInLabels := builtInTopicLabels(normalized.Name, tenant.Name, topic.Name)
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
-			containerPort := listenAddressPort(normalized.ControlPlane.DefaultListenAddress)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -64,8 +66,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, normalized.ControlPlane.OPAResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, containerPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, normalized.ControlPlane.OPAResources),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, listenPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -98,8 +100,7 @@ metadata:
 `, name, renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, listenAddress, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
-	containerPort := listenAddressPort(listenAddress)
+func renderDeploymentYAML(name, listenAddress string, containerPort int, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -200,30 +201,6 @@ func renderResourceListBlock(name string, values *ResourceList, indent int) stri
 		fmt.Fprintf(&b, "%s  memory: %s\n", prefix, strconv.Quote(memory))
 	}
 	return b.String()
-}
-
-func listenAddressPort(listenAddress string) int {
-	trimmed := strings.TrimSpace(listenAddress)
-	if trimmed == "" {
-		return 8181
-	}
-	if strings.HasPrefix(trimmed, ":") {
-		if port, err := strconv.Atoi(strings.TrimPrefix(trimmed, ":")); err == nil {
-			return port
-		}
-	}
-	host, portText, err := net.SplitHostPort(trimmed)
-	if err != nil {
-		return 8181
-	}
-	if host == "" && portText == "" {
-		return 8181
-	}
-	port, err := strconv.Atoi(portText)
-	if err != nil {
-		return 8181
-	}
-	return port
 }
 
 func builtInTopicLabels(appName, tenantName, topicName string) map[string]string {

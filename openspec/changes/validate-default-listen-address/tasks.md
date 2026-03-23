@@ -5,3 +5,4 @@
 - [x] validate `controlPlane.defaultListenAddress` during spec validation without changing the empty-value default behavior
 - [x] add regression tests for valid and invalid listen-address shapes in admin and HTTP validation paths
 - [x] update operator-facing docs once the validation behavior ships
+- [x] remove render-time best-effort listen-port fallback so plan rendering reuses the strict validated parser
