@@ -58,11 +58,13 @@ type Tenant struct {
 }
 
 type Topic struct {
-	Name           string               `json:"name" yaml:"name"`
-	BundleResource string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
-	DecisionPath   string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
-	Labels         map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-	OPAResources   ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
+	Name               string               `json:"name" yaml:"name"`
+	BundleResource     string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath       string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels             map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	ServiceType        string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
+	ServiceAnnotations map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	OPAResources       ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -184,6 +186,14 @@ func Validate(spec Specification) []string {
 				}
 				if err := validateKubernetesLabelValue(labelValue); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
+				}
+			}
+			if err := validateKubernetesServiceType(topic.ServiceType); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceType is invalid: %v", tenantName, topicName, err))
+			}
+			for annotationKey := range topic.ServiceAnnotations {
+				if err := validateKubernetesLabelKey(annotationKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
 			issues = append(issues, validateOPAResourcesAtPath(fmt.Sprintf("tenant %q topic %q opaResources", tenantName, topicName), topic.OPAResources)...)
@@ -390,7 +400,8 @@ func normalize(spec Specification) Specification {
 	if strings.TrimSpace(normalized.ControlPlane.OPAImage) == "" {
 		normalized.ControlPlane.OPAImage = DefaultOPAImage
 	}
-	if strings.TrimSpace(normalized.ControlPlane.ServiceType) == "" {
+	normalized.ControlPlane.ServiceType = strings.TrimSpace(normalized.ControlPlane.ServiceType)
+	if normalized.ControlPlane.ServiceType == "" {
 		normalized.ControlPlane.ServiceType = "ClusterIP"
 	}
 	normalized.ControlPlane.OPAResources = normalizeResourceRequirements(normalized.ControlPlane.OPAResources)
@@ -398,6 +409,7 @@ func normalize(spec Specification) Specification {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)
 		for j := range normalized.Tenants[i].Topics {
 			normalized.Tenants[i].Topics[j].Name = strings.TrimSpace(normalized.Tenants[i].Topics[j].Name)
+			normalized.Tenants[i].Topics[j].ServiceType = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceType)
 			if strings.TrimSpace(normalized.Tenants[i].Topics[j].DecisionPath) == "" {
 				normalized.Tenants[i].Topics[j].DecisionPath = normalized.ControlPlane.DefaultDecisionPath
 			}
@@ -453,6 +465,23 @@ func mergeResourceList(base, override *ResourceList) *ResourceList {
 		}
 	}
 	if merged.CPU == "" && merged.Memory == "" {
+		return nil
+	}
+	return merged
+}
+
+func mergeStringMap(base, override map[string]string) map[string]string {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+	merged := make(map[string]string, len(base)+len(override))
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range override {
+		merged[key] = value
+	}
+	if len(merged) == 0 {
 		return nil
 	}
 	return merged

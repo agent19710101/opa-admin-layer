@@ -330,6 +330,53 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceType:    "LoadBalancer",
+			ServiceAnnotations: map[string]string{
+				"example.com/health-check-path": "/health",
+				"example.com/scope":             "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:        "billing",
+				ServiceType: "NodePort",
+				ServiceAnnotations: map[string]string{
+					"example.com/scope":    "billing",
+					"example.com/exposure": "public",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	for _, expected := range []string{
+		"type: NodePort",
+		`example.com/health-check-path: "/health"`,
+		`example.com/scope: "billing"`,
+		`example.com/exposure: "public"`,
+	} {
+		if !strings.Contains(service, expected) {
+			t.Fatalf("expected service manifest to contain %q, got %q", expected, service)
+		}
+	}
+	if strings.Contains(service, "type: LoadBalancer") {
+		t.Fatalf("expected topic service type override to replace shared value, got %q", service)
+	}
+	if strings.Contains(service, `example.com/scope: "shared"`) {
+		t.Fatalf("expected topic annotation override to replace shared value, got %q", service)
+	}
+}
+
 func TestBuildPlanUsesConfiguredOPAImage(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
@@ -562,6 +609,32 @@ func TestValidateRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *t
 	}
 	if !strings.Contains(joined, "controlPlane.opaResources.requests must set cpu and/or memory") {
 		t.Fatalf("expected empty opaResources requests issue, got %#v", issues)
+	}
+}
+
+func TestValidateRejectsInvalidTopicServiceOverrides(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:        "billing",
+				ServiceType: "ExternalName",
+				ServiceAnnotations: map[string]string{
+					"Example.com/internal": "true",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" serviceType is invalid`) {
+		t.Fatalf("expected invalid topic service type issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" serviceAnnotations key "Example.com/internal" is invalid`) {
+		t.Fatalf("expected invalid topic service annotation key issue, got %#v", issues)
 	}
 }
 

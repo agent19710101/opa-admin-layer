@@ -59,6 +59,11 @@ func BuildPlan(spec Specification) (Plan, error) {
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
+			effectiveServiceType := normalized.ControlPlane.ServiceType
+			if topic.ServiceType != "" {
+				effectiveServiceType = topic.ServiceType
+			}
+			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -68,7 +73,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, normalized.ControlPlane.ServiceType, listenPort, renderedLabels, normalized.ControlPlane.ServiceAnnotations),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)

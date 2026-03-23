@@ -62,6 +62,8 @@ Architecture update (2026-03-23, topic OPA resource overrides): tenant/topic ent
 
 Architecture update (2026-03-23, OPA resource quantity validation): shared `controlPlane.opaResources` values and topic-level `opaResources` overrides are now treated as part of the admin contract rather than opaque manifest text. The validation layer parses CPU and memory quantities before render so malformed values fail in CLI and REST validation paths instead of leaking into generated Deployments and only failing at Kubernetes apply time.
 
+Architecture update (2026-03-23, topic Service overrides): Service exposure and annotation metadata now follow the same inheritance model as topic OPA resources. Shared control-plane Service defaults still define the baseline, but a topic can now override `serviceType` and merge `serviceAnnotations` key-by-key for workload-specific ingress, load-balancer, or mesh integration without downstream manifest patching.
+
 Architecture update (2026-03-23, YAML spec ingestion): spec decoding is now format-flexible but contract-strict. A single shared ingestion path accepts either JSON or YAML for CLI and REST flows, while unknown fields are still rejected before validation/render so YAML support does not reopen the loose-schema drift that the strict JSON decoder previously closed.
 
 Architecture update (2026-03-23, checked-in YAML example): the repository now carries a first-class YAML example spec alongside the JSON example. That keeps the supported operator input path visible and testable in-tree instead of leaving YAML as an implementation detail only covered by unit tests and README snippets.

@@ -193,3 +193,60 @@ func TestRunValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
 		t.Fatalf("expected validation failure, got %v", err)
 	}
 }
+
+func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "serviceType": "LoadBalancer",
+    "serviceAnnotations": {
+      "example.com/scope": "shared",
+      "example.com/health-check-path": "/health"
+    }
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing",
+          "serviceType": "NodePort",
+          "serviceAnnotations": {
+            "example.com/scope": "billing",
+            "example.com/exposure": "public"
+          }
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	serviceBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "service.yaml"))
+	if err != nil {
+		t.Fatalf("read service: %v", err)
+	}
+	service := string(serviceBytes)
+	for _, expected := range []string{
+		"type: NodePort",
+		`example.com/scope: "billing"`,
+		`example.com/exposure: "public"`,
+		`example.com/health-check-path: "/health"`,
+	} {
+		if !strings.Contains(service, expected) {
+			t.Fatalf("expected rendered service to contain %q, got %s", expected, service)
+		}
+	}
+	if strings.Contains(service, "type: LoadBalancer") {
+		t.Fatalf("expected topic service type override to replace shared type, got %s", service)
+	}
+}

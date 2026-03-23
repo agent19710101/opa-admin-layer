@@ -124,7 +124,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared Service metadata, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
@@ -150,6 +150,23 @@ Example shared Service metadata, shared OPA resource defaults, and a per-topic r
       "topics": [
         {
           "name": "billing",
+          "serviceType": "NodePort",
+          "serviceAnnotations": {
+            "example.com/health-check-path": "/billing-health",
+            "example.com/exposure": "public"
+          },
+          "opaResources": {
+            "requests": {
+              "memory": "256Mi"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+        "name": "billing",
           "opaResources": {
             "requests": {
               "memory": "256Mi"

@@ -22,7 +22,8 @@
 10. Generated plans should expose each tenant/topic OPA workload through a stable Kubernetes Service derived from the normalized listen port.
 11. Operators should be able to select the rendered Kubernetes Service type from the admin spec without post-processing manifests, while unsupported service modes are rejected during validation.
 12. Operators should be able to attach shared Kubernetes Service annotations from the admin spec so common load-balancer and controller integrations do not require downstream patches.
-13. Operators should be able to declare shared OPA container CPU/memory requests and limits in the admin spec so rendered Deployments can carry baseline scheduling defaults without manual patching.
+13. Operators should be able to override shared Kubernetes Service type and annotations per topic while inheriting unspecified Service metadata from the shared control-plane defaults.
+14. Operators should be able to declare shared OPA container CPU/memory requests and limits in the admin spec so rendered Deployments can carry baseline scheduling defaults without manual patching.
 14. Operators should be able to override shared OPA CPU/memory requests and limits per topic while inheriting unspecified resource fields from the shared control-plane defaults.
 15. `controlPlane.baseServiceURL` must be validated as an absolute HTTP(S) URL before render so generated bundle URLs cannot be built from malformed or relative control-plane input.
 16. `controlPlane.defaultListenAddress` must be validated as `:port`, `host:port`, or bracketed IPv6 `host:port` when provided so generated OPA args, Deployment probe ports, and Service ports cannot silently diverge.

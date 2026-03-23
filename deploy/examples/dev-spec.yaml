@@ -21,6 +21,10 @@ tenants:
         labels:
           environment: dev
           owner: platform
+        serviceType: NodePort
+        serviceAnnotations:
+          example.com/exposure: public
+          example.com/health-check-path: /billing-health
         opaResources:
           requests:
             memory: 256Mi
