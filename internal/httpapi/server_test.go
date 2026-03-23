@@ -166,7 +166,7 @@ func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndEmptyOPAResources(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","externalTrafficPolicy":"Edge","serviceAnnotations":{"Example.com/internal":"true"},"opaResources":{"requests":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","externalTrafficPolicy":"Edge","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"},"opaResources":{"requests":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -182,6 +182,9 @@ func TestValidateEndpointRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndE
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("externalTrafficPolicy")) {
 		t.Fatalf("expected invalid externalTrafficPolicy error, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("sessionAffinity")) {
+		t.Fatalf("expected invalid sessionAffinity error, got %s", rec.Body.String())
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("opaResources.requests")) {
 		t.Fatalf("expected invalid opaResources requests error, got %s", rec.Body.String())
@@ -231,7 +234,7 @@ func TestValidateEndpointRejectsInvalidTopicOPAResources(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceType":"ExternalName","externalTrafficPolicy":"Edge","serviceAnnotations":{"Example.com/internal":"true"}}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceType":"ExternalName","externalTrafficPolicy":"Edge","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"}}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -242,6 +245,7 @@ func TestValidateEndpointRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	for _, expected := range [][]byte{
 		[]byte(`serviceType is invalid`),
 		[]byte(`externalTrafficPolicy is invalid`),
+		[]byte(`sessionAffinity is invalid`),
 		[]byte(`serviceAnnotations key`),
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
@@ -267,6 +271,21 @@ func TestValidateEndpointRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
 			t.Fatalf("expected resource budget validation error %q, got %s", expected, rec.Body.String())
 		}
+	}
+}
+
+func TestValidateEndpointRejectsInvalidSessionAffinity(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","sessionAffinity":"Sticky"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("sessionAffinity")) {
+		t.Fatalf("expected invalid sessionAffinity error, got %s", rec.Body.String())
 	}
 }
 

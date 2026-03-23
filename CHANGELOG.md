@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared/topic `sessionAffinity` support for rendered Services with inherited `None`/`ClientIP` rendering
 - add shared/topic `externalTrafficPolicy` support for rendered Services with effective compatibility validation
 - enforce shared and inherited OPA resource request/limit budgets during validation
 - add topic-level `serviceType` and `serviceAnnotations` overrides merged over shared Service defaults

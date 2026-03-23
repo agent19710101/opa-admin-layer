@@ -109,6 +109,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
+- optional shared `controlPlane.sessionAffinity` plus topic-level overrides so generated Services can express sticky-client routing (`None` or `ClientIP`) without downstream patching
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 - optional per-topic `opaResources` overrides that merge over shared defaults, letting one topic raise/lower CPU or memory without restating the full resource profile
 - Kubernetes quantity syntax validation for both shared and per-topic `opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
@@ -133,6 +134,7 @@ Example shared Service metadata, inherited/overridden external traffic policy, p
   "controlPlane": {
     "serviceType": "LoadBalancer",
     "externalTrafficPolicy": "Cluster",
+    "sessionAffinity": "ClientIP",
     "serviceAnnotations": {
       "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
       "example.com/health-check-path": "/health?plugins"
@@ -155,6 +157,7 @@ Example shared Service metadata, inherited/overridden external traffic policy, p
           "name": "billing",
           "serviceType": "NodePort",
           "externalTrafficPolicy": "Local",
+          "sessionAffinity": "None",
           "serviceAnnotations": {
             "example.com/health-check-path": "/billing-health",
             "example.com/exposure": "public"

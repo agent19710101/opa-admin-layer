@@ -298,6 +298,7 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 			BaseServiceURL:        "https://control.example.com",
 			ServiceType:           "LoadBalancer",
 			ExternalTrafficPolicy: "Local",
+			SessionAffinity:       "ClientIP",
 			ServiceAnnotations: map[string]string{
 				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 				"example.com/health-check-path":                       "/health?plugins",
@@ -332,6 +333,9 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	if !strings.Contains(service, "externalTrafficPolicy: Local") {
 		t.Fatalf("expected service manifest to include configured externalTrafficPolicy, got %q", service)
 	}
+	if !strings.Contains(service, "sessionAffinity: ClientIP") {
+		t.Fatalf("expected service manifest to include configured sessionAffinity, got %q", service)
+	}
 }
 
 func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
@@ -341,6 +345,7 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 			BaseServiceURL:        "https://control.example.com",
 			ServiceType:           "LoadBalancer",
 			ExternalTrafficPolicy: "Cluster",
+			SessionAffinity:       "ClientIP",
 			ServiceAnnotations: map[string]string{
 				"example.com/health-check-path": "/health",
 				"example.com/scope":             "shared",
@@ -352,6 +357,7 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 				Name:                  "billing",
 				ServiceType:           "NodePort",
 				ExternalTrafficPolicy: "Local",
+				SessionAffinity:       "None",
 				ServiceAnnotations: map[string]string{
 					"example.com/scope":    "billing",
 					"example.com/exposure": "public",
@@ -368,6 +374,7 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 	for _, expected := range []string{
 		"type: NodePort",
 		"externalTrafficPolicy: Local",
+		"sessionAffinity: None",
 		`example.com/health-check-path: "/health"`,
 		`example.com/scope: "billing"`,
 		`example.com/exposure: "public"`,
@@ -381,6 +388,9 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 	}
 	if strings.Contains(service, `example.com/scope: "shared"`) {
 		t.Fatalf("expected topic annotation override to replace shared value, got %q", service)
+	}
+	if strings.Contains(service, "sessionAffinity: ClientIP") {
+		t.Fatalf("expected topic sessionAffinity override to replace shared value, got %q", service)
 	}
 }
 
@@ -591,6 +601,7 @@ func TestValidateRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndEmptyOPAR
 			BaseServiceURL:        "https://control.example.com",
 			ServiceType:           "ExternalName",
 			ExternalTrafficPolicy: "Edge",
+			SessionAffinity:       "Sticky",
 			ServiceAnnotations: map[string]string{
 				"Example.com/internal": "true",
 			},
@@ -618,6 +629,9 @@ func TestValidateRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndEmptyOPAR
 	if !strings.Contains(joined, "controlPlane.externalTrafficPolicy is invalid") {
 		t.Fatalf("expected invalid external traffic policy issue, got %#v", issues)
 	}
+	if !strings.Contains(joined, "controlPlane.sessionAffinity is invalid") {
+		t.Fatalf("expected invalid session affinity issue, got %#v", issues)
+	}
 	if !strings.Contains(joined, "controlPlane.opaResources.requests must set cpu and/or memory") {
 		t.Fatalf("expected empty opaResources requests issue, got %#v", issues)
 	}
@@ -633,6 +647,7 @@ func TestValidateRejectsInvalidTopicServiceOverrides(t *testing.T) {
 				Name:                  "billing",
 				ServiceType:           "ExternalName",
 				ExternalTrafficPolicy: "Edge",
+				SessionAffinity:       "Sticky",
 				ServiceAnnotations: map[string]string{
 					"Example.com/internal": "true",
 				},
@@ -650,6 +665,9 @@ func TestValidateRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	}
 	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" externalTrafficPolicy is invalid`) {
 		t.Fatalf("expected invalid topic external traffic policy issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" sessionAffinity is invalid`) {
+		t.Fatalf("expected invalid topic session affinity issue, got %#v", issues)
 	}
 }
 

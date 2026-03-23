@@ -68,6 +68,10 @@ func BuildPlan(spec Specification) (Plan, error) {
 			if topic.ExternalTrafficPolicy != "" {
 				effectiveExternalTrafficPolicy = topic.ExternalTrafficPolicy
 			}
+			effectiveSessionAffinity := normalized.ControlPlane.SessionAffinity
+			if topic.SessionAffinity != "" {
+				effectiveSessionAffinity = topic.SessionAffinity
+			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -77,7 +81,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, listenPort, renderedLabels, effectiveServiceAnnotations),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -156,7 +160,7 @@ metadata:
 `, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
-func renderServiceYAML(name, workloadName, serviceType, externalTrafficPolicy string, port int, labels, annotations map[string]string) string {
+func renderServiceYAML(name, workloadName, serviceType, externalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -164,14 +168,14 @@ metadata:
 %s  labels:
 %sspec:
   type: %s
-%s  selector:
+%s%s  selector:
     app.kubernetes.io/name: %s
   ports:
     - name: http
       port: %d
       targetPort: %d
       protocol: TCP
-`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), workloadName, port, port)
+`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), renderSessionAffinitySection(sessionAffinity, 2), workloadName, port, port)
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {
@@ -242,6 +246,14 @@ func renderExternalTrafficPolicySection(policy string, indent int) string {
 		return ""
 	}
 	return fmt.Sprintf("%sexternalTrafficPolicy: %s\n", strings.Repeat(" ", indent), trimmed)
+}
+
+func renderSessionAffinitySection(value string, indent int) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	return fmt.Sprintf("%ssessionAffinity: %s\n", strings.Repeat(" ", indent), trimmed)
 }
 
 func renderAnnotationsSection(annotations map[string]string, indent int) string {

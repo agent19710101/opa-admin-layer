@@ -24,12 +24,13 @@
 12. Operators should be able to attach shared Kubernetes Service annotations from the admin spec so common load-balancer and controller integrations do not require downstream patches.
 13. Operators should be able to override shared Kubernetes Service type and annotations per topic while inheriting unspecified Service metadata from the shared control-plane defaults.
 14. Operators should be able to declare shared and topic-level `externalTrafficPolicy` values for rendered Services when the effective Service type is `NodePort` or `LoadBalancer`, while invalid values or `ClusterIP` combinations are rejected during validation.
-15. Operators should be able to declare shared OPA container CPU/memory requests and limits in the admin spec so rendered Deployments can carry baseline scheduling defaults without manual patching.
-16. Operators should be able to override shared OPA CPU/memory requests and limits per topic while inheriting unspecified resource fields from the shared control-plane defaults.
-17. Shared and inherited effective OPA resource profiles must reject CPU or memory requests that exceed their matching limits so generated Deployments stay within Kubernetes resource-budget rules.
-18. `controlPlane.baseServiceURL` must be validated as an absolute HTTP(S) URL before render so generated bundle URLs cannot be built from malformed or relative control-plane input.
-19. `controlPlane.defaultListenAddress` must be validated as `:port`, `host:port`, or bracketed IPv6 `host:port` when provided so generated OPA args, Deployment probe ports, and Service ports cannot silently diverge.
-20. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
+15. Operators should be able to declare shared and topic-level `sessionAffinity` values for rendered Services, limited to Kubernetes `None` and `ClientIP`, so sticky-client routing can be expressed without downstream patching.
+16. Operators should be able to declare shared OPA container CPU/memory requests and limits in the admin spec so rendered Deployments can carry baseline scheduling defaults without manual patching.
+17. Operators should be able to override shared OPA CPU/memory requests and limits per topic while inheriting unspecified resource fields from the shared control-plane defaults.
+18. Shared and inherited effective OPA resource profiles must reject CPU or memory requests that exceed their matching limits so generated Deployments stay within Kubernetes resource-budget rules.
+19. `controlPlane.baseServiceURL` must be validated as an absolute HTTP(S) URL before render so generated bundle URLs cannot be built from malformed or relative control-plane input.
+20. `controlPlane.defaultListenAddress` must be validated as `:port`, `host:port`, or bracketed IPv6 `host:port` when provided so generated OPA args, Deployment probe ports, and Service ports cannot silently diverge.
+21. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
 
 ## Operational requirements
 

@@ -7,6 +7,7 @@
     "defaultListenAddress": ":8181",
     "opaImage": "openpolicyagent/opa:1.12.1",
     "serviceType": "ClusterIP",
+    "sessionAffinity": "ClientIP",
     "serviceAnnotations": {
       "example.com/health-check-path": "/health?plugins"
     },
@@ -32,6 +33,7 @@
           },
           "serviceType": "NodePort",
           "externalTrafficPolicy": "Local",
+          "sessionAffinity": "None",
           "serviceAnnotations": {
             "example.com/exposure": "public",
             "example.com/health-check-path": "/billing-health"
