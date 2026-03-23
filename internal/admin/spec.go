@@ -40,6 +40,7 @@ type ControlPlane struct {
 	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
 	ExternalTrafficPolicy string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
+	InternalTrafficPolicy string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
 	SessionAffinity       string               `json:"sessionAffinity" yaml:"sessionAffinity"`
 	OPAResources          ResourceRequirements `json:"opaResources" yaml:"opaResources"`
 }
@@ -67,6 +68,7 @@ type Topic struct {
 	ServiceType           string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
 	ExternalTrafficPolicy string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
 	SessionAffinity       string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
 	OPAResources          ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
 }
@@ -155,6 +157,9 @@ func Validate(spec Specification) []string {
 	if err := validateExternalTrafficPolicy(spec.ControlPlane.ExternalTrafficPolicy); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.externalTrafficPolicy is invalid: %v", err))
 	}
+	if err := validateInternalTrafficPolicy(spec.ControlPlane.InternalTrafficPolicy); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.internalTrafficPolicy is invalid: %v", err))
+	}
 	if err := validateSessionAffinity(spec.ControlPlane.SessionAffinity); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.sessionAffinity is invalid: %v", err))
 	}
@@ -212,6 +217,9 @@ func Validate(spec Specification) []string {
 			}
 			if err := validateExternalTrafficPolicy(topic.ExternalTrafficPolicy); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q externalTrafficPolicy is invalid: %v", tenantName, topicName, err))
+			}
+			if err := validateInternalTrafficPolicy(topic.InternalTrafficPolicy); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q internalTrafficPolicy is invalid: %v", tenantName, topicName, err))
 			}
 			if err := validateSessionAffinity(topic.SessionAffinity); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q sessionAffinity is invalid: %v", tenantName, topicName, err))
@@ -342,6 +350,19 @@ func validateKubernetesServiceType(serviceType string) error {
 }
 
 func validateExternalTrafficPolicy(policy string) error {
+	trimmed := strings.TrimSpace(policy)
+	if trimmed == "" {
+		return nil
+	}
+	switch trimmed {
+	case "Cluster", "Local":
+		return nil
+	default:
+		return fmt.Errorf("must be Cluster or Local")
+	}
+}
+
+func validateInternalTrafficPolicy(policy string) error {
 	trimmed := strings.TrimSpace(policy)
 	if trimmed == "" {
 		return nil
@@ -516,6 +537,7 @@ func normalize(spec Specification) Specification {
 		normalized.ControlPlane.ServiceType = "ClusterIP"
 	}
 	normalized.ControlPlane.ExternalTrafficPolicy = strings.TrimSpace(normalized.ControlPlane.ExternalTrafficPolicy)
+	normalized.ControlPlane.InternalTrafficPolicy = strings.TrimSpace(normalized.ControlPlane.InternalTrafficPolicy)
 	normalized.ControlPlane.SessionAffinity = strings.TrimSpace(normalized.ControlPlane.SessionAffinity)
 	normalized.ControlPlane.OPAResources = normalizeResourceRequirements(normalized.ControlPlane.OPAResources)
 	for i := range normalized.Tenants {
@@ -524,6 +546,7 @@ func normalize(spec Specification) Specification {
 			normalized.Tenants[i].Topics[j].Name = strings.TrimSpace(normalized.Tenants[i].Topics[j].Name)
 			normalized.Tenants[i].Topics[j].ServiceType = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceType)
 			normalized.Tenants[i].Topics[j].ExternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].ExternalTrafficPolicy)
+			normalized.Tenants[i].Topics[j].InternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].InternalTrafficPolicy)
 			normalized.Tenants[i].Topics[j].SessionAffinity = strings.TrimSpace(normalized.Tenants[i].Topics[j].SessionAffinity)
 			if strings.TrimSpace(normalized.Tenants[i].Topics[j].DecisionPath) == "" {
 				normalized.Tenants[i].Topics[j].DecisionPath = normalized.ControlPlane.DefaultDecisionPath

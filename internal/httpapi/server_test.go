@@ -166,7 +166,7 @@ func TestValidateEndpointRejectsInvalidRenderedResourceNames(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndEmptyOPAResources(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","externalTrafficPolicy":"Edge","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"},"opaResources":{"requests":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceType":"ExternalName","externalTrafficPolicy":"Edge","internalTrafficPolicy":"Sideways","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"},"opaResources":{"requests":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -182,6 +182,12 @@ func TestValidateEndpointRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndE
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("externalTrafficPolicy")) {
 		t.Fatalf("expected invalid externalTrafficPolicy error, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("internalTrafficPolicy")) {
+		t.Fatalf("expected invalid internalTrafficPolicy error, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("internalTrafficPolicy")) {
+		t.Fatalf("expected invalid internalTrafficPolicy error, got %s", rec.Body.String())
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("sessionAffinity")) {
 		t.Fatalf("expected invalid sessionAffinity error, got %s", rec.Body.String())
@@ -234,7 +240,7 @@ func TestValidateEndpointRejectsInvalidTopicOPAResources(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceType":"ExternalName","externalTrafficPolicy":"Edge","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"}}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceType":"ExternalName","externalTrafficPolicy":"Edge","internalTrafficPolicy":"Sideways","sessionAffinity":"Sticky","serviceAnnotations":{"Example.com/internal":"true"}}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -245,6 +251,7 @@ func TestValidateEndpointRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	for _, expected := range [][]byte{
 		[]byte(`serviceType is invalid`),
 		[]byte(`externalTrafficPolicy is invalid`),
+		[]byte(`internalTrafficPolicy is invalid`),
 		[]byte(`sessionAffinity is invalid`),
 		[]byte(`serviceAnnotations key`),
 	} {
@@ -274,9 +281,9 @@ func TestValidateEndpointRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
 	}
 }
 
-func TestValidateEndpointRejectsInvalidSessionAffinity(t *testing.T) {
+func TestValidateEndpointRejectsInvalidInternalTrafficPolicyAndSessionAffinity(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","sessionAffinity":"Sticky"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","internalTrafficPolicy":"Sideways","sessionAffinity":"Sticky"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)

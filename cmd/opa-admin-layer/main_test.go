@@ -202,6 +202,7 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
     "baseServiceURL": "https://control.example.com",
     "serviceType": "LoadBalancer",
     "externalTrafficPolicy": "Cluster",
+    "internalTrafficPolicy": "Cluster",
     "sessionAffinity": "ClientIP",
     "serviceAnnotations": {
       "example.com/scope": "shared",
@@ -216,6 +217,7 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
           "name": "billing",
           "serviceType": "NodePort",
           "externalTrafficPolicy": "Local",
+          "internalTrafficPolicy": "Local",
           "sessionAffinity": "None",
           "serviceAnnotations": {
             "example.com/scope": "billing",
@@ -296,12 +298,13 @@ func TestRunValidateRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
 	}
 }
 
-func TestRunValidateRejectsInvalidSessionAffinity(t *testing.T) {
+func TestRunValidateRejectsInvalidInternalTrafficPolicyAndSessionAffinity(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{
   "name": "demo",
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
+    "internalTrafficPolicy": "Edge",
     "sessionAffinity": "Sticky"
   },
   "tenants": [

@@ -109,6 +109,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
+- optional shared `controlPlane.internalTrafficPolicy` plus topic-level overrides so generated Services can steer in-cluster node-local routing (`Cluster` or `Local`) without downstream patching
 - optional shared `controlPlane.sessionAffinity` plus topic-level overrides so generated Services can express sticky-client routing (`None` or `ClientIP`) without downstream patching
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 - optional per-topic `opaResources` overrides that merge over shared defaults, letting one topic raise/lower CPU or memory without restating the full resource profile
@@ -127,13 +128,14 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata, inherited/overridden external traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared Service metadata, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
   "controlPlane": {
     "serviceType": "LoadBalancer",
     "externalTrafficPolicy": "Cluster",
+    "internalTrafficPolicy": "Cluster",
     "sessionAffinity": "ClientIP",
     "serviceAnnotations": {
       "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
@@ -157,6 +159,7 @@ Example shared Service metadata, inherited/overridden external traffic policy, p
           "name": "billing",
           "serviceType": "NodePort",
           "externalTrafficPolicy": "Local",
+          "internalTrafficPolicy": "Local",
           "sessionAffinity": "None",
           "serviceAnnotations": {
             "example.com/health-check-path": "/billing-health",

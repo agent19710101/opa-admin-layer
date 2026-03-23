@@ -6,6 +6,7 @@ controlPlane:
   defaultListenAddress: ":8181"
   opaImage: openpolicyagent/opa:1.12.1
   serviceType: ClusterIP
+  internalTrafficPolicy: Cluster
   sessionAffinity: ClientIP
   serviceAnnotations:
     example.com/health-check-path: /health?plugins
@@ -24,6 +25,7 @@ tenants:
           owner: platform
         serviceType: NodePort
         externalTrafficPolicy: Local
+        internalTrafficPolicy: Local
         sessionAffinity: None
         serviceAnnotations:
           example.com/exposure: public
