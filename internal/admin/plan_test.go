@@ -36,6 +36,67 @@ func TestValidateRejectsInvalidBaseServiceURL(t *testing.T) {
 	}
 }
 
+func TestValidateAllowsExplicitListenAddressShapes(t *testing.T) {
+	tests := map[string]string{
+		"portOnly":     ":8181",
+		"ipv4HostPort": "127.0.0.1:8282",
+		"ipv6HostPort": "[::1]:8181",
+	}
+
+	for name, defaultListenAddress := range tests {
+		t.Run(name, func(t *testing.T) {
+			spec := Specification{
+				Name: "demo",
+				ControlPlane: ControlPlane{
+					BaseServiceURL:       "https://control.example.com",
+					DefaultListenAddress: defaultListenAddress,
+				},
+				Tenants: []Tenant{{
+					Name:   "tenant-a",
+					Topics: []Topic{{Name: "billing"}},
+				}},
+			}
+
+			if issues := Validate(spec); len(issues) > 0 {
+				t.Fatalf("expected listen address %q to pass validation, got %#v", defaultListenAddress, issues)
+			}
+		})
+	}
+}
+
+func TestValidateRejectsInvalidDefaultListenAddress(t *testing.T) {
+	tests := map[string]string{
+		"missingPort":    "localhost",
+		"barePort":       "8181",
+		"nonnumericPort": ":abc",
+		"outOfRangePort": "127.0.0.1:70000",
+	}
+
+	for name, defaultListenAddress := range tests {
+		t.Run(name, func(t *testing.T) {
+			spec := Specification{
+				Name: "demo",
+				ControlPlane: ControlPlane{
+					BaseServiceURL:       "https://control.example.com",
+					DefaultListenAddress: defaultListenAddress,
+				},
+				Tenants: []Tenant{{
+					Name:   "tenant-a",
+					Topics: []Topic{{Name: "billing"}},
+				}},
+			}
+
+			issues := Validate(spec)
+			if len(issues) == 0 {
+				t.Fatalf("expected invalid default listen address issue for %q", defaultListenAddress)
+			}
+			if !strings.Contains(strings.Join(issues, "\n"), "controlPlane.defaultListenAddress is invalid") {
+				t.Fatalf("expected defaultListenAddress validation issue, got %#v", issues)
+			}
+		})
+	}
+}
+
 func TestValidateRejectsDuplicateTenantAndTopic(t *testing.T) {
 	spec := Specification{
 		Name:         "demo",

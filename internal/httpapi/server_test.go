@@ -116,6 +116,21 @@ func TestValidateEndpointRejectsInvalidBaseServiceURL(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointRejectsInvalidDefaultListenAddress(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","defaultListenAddress":"localhost"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("defaultListenAddress")) {
+		t.Fatalf("expected invalid defaultListenAddress error, got %s", rec.Body.String())
+	}
+}
+
 func TestValidateEndpointRejectsInvalidTopicLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","labels":{"Example.com/owner":"platform!"}}]}]}`))

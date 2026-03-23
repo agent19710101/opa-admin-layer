@@ -100,6 +100,38 @@ tenants:
 	}
 }
 
+func TestRunValidateRejectsInvalidDefaultListenAddress(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "defaultListenAddress": "localhost"
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	err := run([]string{"validate", "-input", specPath})
+	if err == nil {
+		t.Fatal("expected validate to fail for invalid default listen address")
+	}
+	if !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+}
+
 func TestRunValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{

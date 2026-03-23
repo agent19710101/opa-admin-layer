@@ -106,6 +106,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 - Kubernetes quantity syntax validation for `controlPlane.opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
 - absolute HTTP(S) validation for `controlPlane.baseServiceURL` so rendered bundle URLs and OPA config always point at a real control-plane endpoint shape
+- explicit `controlPlane.defaultListenAddress` validation for `:port`, `host:port`, and bracketed IPv6 `host:port` so rendered `--addr`, Deployment probe ports, and Service ports cannot drift apart on malformed input
 
 When `render` is called with `-outdir`, it also materializes:
 

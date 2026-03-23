@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -130,6 +132,9 @@ func Validate(spec Specification) []string {
 	}
 	if err := validateBaseServiceURL(spec.ControlPlane.BaseServiceURL); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.baseServiceURL is invalid: %v", err))
+	}
+	if err := validateListenAddress(spec.ControlPlane.DefaultListenAddress); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.defaultListenAddress is invalid: %v", err))
 	}
 	seenTenants := map[string]struct{}{}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
@@ -289,6 +294,26 @@ func validateKubernetesServiceType(serviceType string) error {
 	default:
 		return fmt.Errorf("must be one of ClusterIP, NodePort, or LoadBalancer")
 	}
+}
+
+func validateListenAddress(listenAddress string) error {
+	trimmed := strings.TrimSpace(listenAddress)
+	if trimmed == "" {
+		return nil
+	}
+
+	_, portText, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return fmt.Errorf("must use :port, host:port, or [ipv6]:port syntax")
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return fmt.Errorf("port must be numeric")
+	}
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535")
+	}
+	return nil
 }
 
 func validateRenderedResourceName(name string) error {
