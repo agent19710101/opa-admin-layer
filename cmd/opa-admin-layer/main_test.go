@@ -81,6 +81,25 @@ func TestRunValidateRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestRunValidateAcceptsYAMLInput(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.yaml")
+	spec := `name: demo
+controlPlane:
+  baseServiceURL: https://control.example.com
+tenants:
+  - name: tenant-a
+    topics:
+      - name: billing
+`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	if err := run([]string{"validate", "-input", specPath}); err != nil {
+		t.Fatalf("expected YAML validate to pass, got %v", err)
+	}
+}
+
 func TestRunValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{

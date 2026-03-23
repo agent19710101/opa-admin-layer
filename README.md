@@ -43,6 +43,8 @@ make test
 ./bin/opa-admin-layer validate -input deploy/examples/dev-spec.json
 ./bin/opa-admin-layer render -input deploy/examples/dev-spec.json
 ./bin/opa-admin-layer render -input deploy/examples/dev-spec.json -outdir ./tmp/plan
+# YAML is also supported for CLI input.
+./bin/opa-admin-layer validate -input deploy/examples/dev-spec.yaml
 ./bin/opa-admin-layer serve -addr :8080
 ```
 
@@ -89,7 +91,7 @@ The dispatcher advances one phase per run in this order:
 
 The first shipped slice validates a tenant/topic scoped admin spec and renders an OPA-only plan containing:
 
-- strict JSON decoding for CLI and REST input (unknown fields are rejected early)
+- strict JSON or YAML decoding for CLI and REST input (unknown fields are rejected early in both formats)
 - configurable but pinned OPA image selection via `controlPlane.opaImage`
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL

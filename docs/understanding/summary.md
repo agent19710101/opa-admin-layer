@@ -16,6 +16,7 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 - Service exposure defaults should stay small, but operators still need a controlled way to switch between ClusterIP, NodePort, and LoadBalancer without forking generated YAML.
 - Shared Service annotations are the next useful networking control after Service type selection; they let operators express controller/load-balancer metadata in the admin spec instead of patching generated manifests.
 - Shared OPA resource defaults are the next useful deployment control after image/probe/config/service realism; they let operators express baseline CPU/memory scheduling expectations in the admin spec instead of patching rendered Deployments.
+- Admin spec ingestion should match operator workflow realities by accepting both strict JSON and strict YAML through the same CLI and REST contract.
 
 ## Locked project decisions
 

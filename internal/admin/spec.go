@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -22,42 +23,42 @@ var (
 )
 
 type Specification struct {
-	Name         string       `json:"name"`
-	ControlPlane ControlPlane `json:"controlPlane"`
-	Tenants      []Tenant     `json:"tenants"`
+	Name         string       `json:"name" yaml:"name"`
+	ControlPlane ControlPlane `json:"controlPlane" yaml:"controlPlane"`
+	Tenants      []Tenant     `json:"tenants" yaml:"tenants"`
 }
 
 type ControlPlane struct {
-	BaseServiceURL       string               `json:"baseServiceURL"`
-	BundlePrefix         string               `json:"bundlePrefix"`
-	DefaultDecisionPath  string               `json:"defaultDecisionPath"`
-	DefaultListenAddress string               `json:"defaultListenAddress"`
-	OPAImage             string               `json:"opaImage"`
-	ServiceType          string               `json:"serviceType"`
-	ServiceAnnotations   map[string]string    `json:"serviceAnnotations"`
-	OPAResources         ResourceRequirements `json:"opaResources"`
+	BaseServiceURL       string               `json:"baseServiceURL" yaml:"baseServiceURL"`
+	BundlePrefix         string               `json:"bundlePrefix" yaml:"bundlePrefix"`
+	DefaultDecisionPath  string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
+	DefaultListenAddress string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
+	OPAImage             string               `json:"opaImage" yaml:"opaImage"`
+	ServiceType          string               `json:"serviceType" yaml:"serviceType"`
+	ServiceAnnotations   map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	OPAResources         ResourceRequirements `json:"opaResources" yaml:"opaResources"`
 }
 
 type ResourceRequirements struct {
-	Requests *ResourceList `json:"requests,omitempty"`
-	Limits   *ResourceList `json:"limits,omitempty"`
+	Requests *ResourceList `json:"requests,omitempty" yaml:"requests,omitempty"`
+	Limits   *ResourceList `json:"limits,omitempty" yaml:"limits,omitempty"`
 }
 
 type ResourceList struct {
-	CPU    string `json:"cpu,omitempty"`
-	Memory string `json:"memory,omitempty"`
+	CPU    string `json:"cpu,omitempty" yaml:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty" yaml:"memory,omitempty"`
 }
 
 type Tenant struct {
-	Name   string  `json:"name"`
-	Topics []Topic `json:"topics"`
+	Name   string  `json:"name" yaml:"name"`
+	Topics []Topic `json:"topics" yaml:"topics"`
 }
 
 type Topic struct {
-	Name           string            `json:"name"`
-	BundleResource string            `json:"bundleResource,omitempty"`
-	DecisionPath   string            `json:"decisionPath,omitempty"`
-	Labels         map[string]string `json:"labels,omitempty"`
+	Name           string            `json:"name" yaml:"name"`
+	BundleResource string            `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath   string            `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -72,8 +73,15 @@ func LoadSpec(path string) (Specification, error) {
 	return spec, nil
 }
 
-// DecodeSpec decodes a specification from JSON and rejects unknown fields.
+// DecodeSpec decodes a specification from JSON or YAML and rejects unknown fields.
 func DecodeSpec(payload []byte) (Specification, error) {
+	if looksLikeJSON(payload) {
+		return decodeJSONSpec(payload)
+	}
+	return decodeYAMLSpec(payload)
+}
+
+func decodeJSONSpec(payload []byte) (Specification, error) {
 	dec := json.NewDecoder(bytes.NewReader(payload))
 	dec.DisallowUnknownFields()
 
@@ -81,20 +89,37 @@ func DecodeSpec(payload []byte) (Specification, error) {
 	if err := dec.Decode(&spec); err != nil {
 		return Specification{}, err
 	}
-	if err := ensureSingleJSONValue(dec); err != nil {
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return Specification{}, fmt.Errorf("spec must contain exactly one JSON object")
+		}
 		return Specification{}, err
 	}
 	return spec, nil
 }
 
-func ensureSingleJSONValue(dec *json.Decoder) error {
-	if err := dec.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("spec must contain exactly one JSON object")
-		}
-		return err
+func decodeYAMLSpec(payload []byte) (Specification, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(payload))
+	dec.KnownFields(true)
+
+	var spec Specification
+	if err := dec.Decode(&spec); err != nil {
+		return Specification{}, err
 	}
-	return nil
+
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil && extra != nil {
+			return Specification{}, fmt.Errorf("spec must contain exactly one YAML document")
+		}
+		return Specification{}, err
+	}
+	return spec, nil
+}
+
+func looksLikeJSON(payload []byte) bool {
+	trimmed := bytes.TrimSpace(payload)
+	return len(trimmed) > 0 && trimmed[0] == '{'
 }
 
 func Validate(spec Specification) []string {
