@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -127,8 +128,8 @@ func Validate(spec Specification) []string {
 	if strings.TrimSpace(spec.Name) == "" {
 		issues = append(issues, "spec.name must not be empty")
 	}
-	if strings.TrimSpace(spec.ControlPlane.BaseServiceURL) == "" {
-		issues = append(issues, "controlPlane.baseServiceURL must not be empty")
+	if err := validateBaseServiceURL(spec.ControlPlane.BaseServiceURL); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.baseServiceURL is invalid: %v", err))
 	}
 	seenTenants := map[string]struct{}{}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
@@ -246,6 +247,33 @@ func validateDNS1123Subdomain(value string) error {
 		if !dns1123LabelPattern.MatchString(label) {
 			return fmt.Errorf("segment %q must match DNS-1123 label syntax", label)
 		}
+	}
+	return nil
+}
+
+func validateBaseServiceURL(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fmt.Errorf("must not be empty")
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return fmt.Errorf("must be a valid URL: %w", err)
+	}
+	if !parsed.IsAbs() {
+		return fmt.Errorf("must be an absolute URL")
+	}
+	switch parsed.Scheme {
+	case "http", "https":
+		// ok
+	default:
+		return fmt.Errorf("scheme must be http or https")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("host must not be empty")
+	}
+	if parsed.Fragment != "" {
+		return fmt.Errorf("fragment is not supported")
 	}
 	return nil
 }

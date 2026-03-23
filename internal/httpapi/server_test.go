@@ -101,6 +101,21 @@ tenants:
 	}
 }
 
+func TestValidateEndpointRejectsInvalidBaseServiceURL(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"/control"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("baseServiceURL")) {
+		t.Fatalf("expected invalid baseServiceURL error, got %s", rec.Body.String())
+	}
+}
+
 func TestValidateEndpointRejectsInvalidTopicLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","labels":{"Example.com/owner":"platform!"}}]}]}`))

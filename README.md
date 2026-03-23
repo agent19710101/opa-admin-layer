@@ -105,6 +105,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
 - Kubernetes quantity syntax validation for `controlPlane.opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
+- absolute HTTP(S) validation for `controlPlane.baseServiceURL` so rendered bundle URLs and OPA config always point at a real control-plane endpoint shape
 
 When `render` is called with `-outdir`, it also materializes:
 

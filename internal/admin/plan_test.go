@@ -5,6 +5,37 @@ import (
 	"testing"
 )
 
+func TestValidateRejectsInvalidBaseServiceURL(t *testing.T) {
+	tests := map[string]string{
+		"empty":             "",
+		"relative":          "/control",
+		"unsupportedScheme": "ftp://control.example.com",
+		"missingHost":       "https:///bundles",
+		"fragment":          "https://control.example.com/bundles#fragment",
+	}
+
+	for name, baseServiceURL := range tests {
+		t.Run(name, func(t *testing.T) {
+			spec := Specification{
+				Name:         "demo",
+				ControlPlane: ControlPlane{BaseServiceURL: baseServiceURL},
+				Tenants: []Tenant{{
+					Name:   "tenant-a",
+					Topics: []Topic{{Name: "billing"}},
+				}},
+			}
+
+			issues := Validate(spec)
+			if len(issues) == 0 {
+				t.Fatalf("expected invalid baseServiceURL issue")
+			}
+			if !strings.Contains(strings.Join(issues, "\n"), "controlPlane.baseServiceURL is invalid") {
+				t.Fatalf("expected baseServiceURL validation issue, got %#v", issues)
+			}
+		})
+	}
+}
+
 func TestValidateRejectsDuplicateTenantAndTopic(t *testing.T) {
 	spec := Specification{
 		Name:         "demo",
