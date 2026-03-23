@@ -102,6 +102,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared OPA container CPU/memory requests and limits via `controlPlane.opaResources` so generated Deployments can carry baseline scheduling defaults
+- Kubernetes quantity syntax validation for `controlPlane.opaResources` so malformed CPU/memory values fail early in CLI and REST validation paths
 
 When `render` is called with `-outdir`, it also materializes:
 
@@ -113,7 +114,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata and OPA resource defaults:
+Example shared Service metadata and OPA resource defaults (using standard Kubernetes quantity strings):
 
 ```json
 {

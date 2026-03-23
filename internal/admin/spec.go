@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const DefaultOPAImage = "openpolicyagent/opa:1.12.1"
@@ -260,8 +262,27 @@ func validateResourceList(path string, values *ResourceList) []string {
 	if values == nil {
 		return nil
 	}
+	var issues []string
 	if strings.TrimSpace(values.CPU) == "" && strings.TrimSpace(values.Memory) == "" {
-		return []string{fmt.Sprintf("%s must set cpu and/or memory", path)}
+		issues = append(issues, fmt.Sprintf("%s must set cpu and/or memory", path))
+		return issues
+	}
+	if cpu := strings.TrimSpace(values.CPU); cpu != "" {
+		if err := validateKubernetesQuantity(cpu); err != nil {
+			issues = append(issues, fmt.Sprintf("%s.cpu is invalid: %v", path, err))
+		}
+	}
+	if memory := strings.TrimSpace(values.Memory); memory != "" {
+		if err := validateKubernetesQuantity(memory); err != nil {
+			issues = append(issues, fmt.Sprintf("%s.memory is invalid: %v", path, err))
+		}
+	}
+	return issues
+}
+
+func validateKubernetesQuantity(value string) error {
+	if _, err := resource.ParseQuantity(value); err != nil {
+		return err
 	}
 	return nil
 }

@@ -108,3 +108,24 @@ func TestValidateEndpointRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResour
 		t.Fatalf("expected invalid opaResources requests error, got %s", rec.Body.String())
 	}
 }
+
+func TestValidateEndpointRejectsInvalidOPAResourceQuantities(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"ten millicores","memory":"128Mega"},"limits":{"memory":"0x20"}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte("opaResources.requests.cpu"),
+		[]byte("opaResources.requests.memory"),
+		[]byte("opaResources.limits.memory"),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid quantity error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}

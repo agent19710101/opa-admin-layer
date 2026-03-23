@@ -391,3 +391,32 @@ func TestValidateRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *t
 		t.Fatalf("expected empty opaResources requests issue, got %#v", issues)
 	}
 }
+
+func TestValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "ten millicores", Memory: "128Mega"},
+				Limits:   &ResourceList{Memory: "0x20"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		"controlPlane.opaResources.requests.cpu is invalid",
+		"controlPlane.opaResources.requests.memory is invalid",
+		"controlPlane.opaResources.limits.memory is invalid",
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid quantity issue %q, got %#v", expected, issues)
+		}
+	}
+}

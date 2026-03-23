@@ -7,7 +7,7 @@
 - A deployment manifest that references `/config/opa-config.yaml` without provisioning it is not runnable and pushes avoidable integration work onto operators.
 - Deployment health probes now assume the normalized listen address exposes OPA HTTP health endpoints on the derived port; future HTTPS or auth-protected control-plane patterns may need probe configurability.
 - Shared Service annotations remove a common patch point, but future edge, mesh, or multi-port exposure needs may still require deeper networking controls.
-- Shared OPA resource defaults improve baseline scheduling realism, but the current slice intentionally does not validate Kubernetes quantity syntax or support per-topic overrides, so future expansion needs explicit guardrails.
+- Shared OPA resource defaults now validate Kubernetes quantity syntax before render, but the model is still shared-only; future per-topic overrides need explicit guardrails so teams do not create inconsistent scheduling policy or unreviewed workload drift.
 - Topic labels and Service annotation keys are now validated against Kubernetes metadata syntax before render, but future metadata expansion (selectors, namespaces, per-topic Service overrides) will need equally explicit guardrails to avoid generating invalid manifests.
 - Generated workload object names depend on spec, tenant, and topic identifiers; without explicit validation, a single punctuation mark or oversized identifier can still produce unusable Deployment, ConfigMap, or Service manifests.
 - Release automation exists locally, but GitHub push/release execution still depends on remote repo creation and permissions.
