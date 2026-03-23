@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared/topic `externalTrafficPolicy` support for rendered Services with effective compatibility validation
 - enforce shared and inherited OPA resource request/limit budgets during validation
 - add topic-level `serviceType` and `serviceAnnotations` overrides merged over shared Service defaults
 - add shared `controlPlane.opaResources` support for rendered OPA Deployment CPU/memory requests and limits

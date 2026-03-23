@@ -32,14 +32,15 @@ type Specification struct {
 }
 
 type ControlPlane struct {
-	BaseServiceURL       string               `json:"baseServiceURL" yaml:"baseServiceURL"`
-	BundlePrefix         string               `json:"bundlePrefix" yaml:"bundlePrefix"`
-	DefaultDecisionPath  string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
-	DefaultListenAddress string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
-	OPAImage             string               `json:"opaImage" yaml:"opaImage"`
-	ServiceType          string               `json:"serviceType" yaml:"serviceType"`
-	ServiceAnnotations   map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
-	OPAResources         ResourceRequirements `json:"opaResources" yaml:"opaResources"`
+	BaseServiceURL        string               `json:"baseServiceURL" yaml:"baseServiceURL"`
+	BundlePrefix          string               `json:"bundlePrefix" yaml:"bundlePrefix"`
+	DefaultDecisionPath   string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
+	DefaultListenAddress  string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
+	OPAImage              string               `json:"opaImage" yaml:"opaImage"`
+	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
+	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	ExternalTrafficPolicy string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
+	OPAResources          ResourceRequirements `json:"opaResources" yaml:"opaResources"`
 }
 
 type ResourceRequirements struct {
@@ -58,13 +59,14 @@ type Tenant struct {
 }
 
 type Topic struct {
-	Name               string               `json:"name" yaml:"name"`
-	BundleResource     string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
-	DecisionPath       string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
-	Labels             map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-	ServiceType        string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
-	ServiceAnnotations map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
-	OPAResources       ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
+	Name                  string               `json:"name" yaml:"name"`
+	BundleResource        string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath          string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels                map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	ServiceType           string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
+	ServiceAnnotations    map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	ExternalTrafficPolicy string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
+	OPAResources          ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -148,6 +150,12 @@ func Validate(spec Specification) []string {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
 		}
 	}
+	if err := validateExternalTrafficPolicy(spec.ControlPlane.ExternalTrafficPolicy); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.externalTrafficPolicy is invalid: %v", err))
+	}
+	if err := validateServiceTrafficPolicyCompatibility(spec.ControlPlane.ServiceType, spec.ControlPlane.ExternalTrafficPolicy); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.externalTrafficPolicy is invalid: %v", err))
+	}
 	issues = append(issues, validateOPAResources(spec.ControlPlane.OPAResources)...)
 	issues = append(issues, validateOPAResourceBudgetAtPath("controlPlane.opaResources", normalizeResourceRequirements(spec.ControlPlane.OPAResources))...)
 	if len(spec.Tenants) == 0 {
@@ -196,6 +204,20 @@ func Validate(spec Specification) []string {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
+			}
+			if err := validateExternalTrafficPolicy(topic.ExternalTrafficPolicy); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q externalTrafficPolicy is invalid: %v", tenantName, topicName, err))
+			}
+			effectiveServiceType := strings.TrimSpace(spec.ControlPlane.ServiceType)
+			if strings.TrimSpace(topic.ServiceType) != "" {
+				effectiveServiceType = topic.ServiceType
+			}
+			effectiveExternalTrafficPolicy := strings.TrimSpace(spec.ControlPlane.ExternalTrafficPolicy)
+			if strings.TrimSpace(topic.ExternalTrafficPolicy) != "" {
+				effectiveExternalTrafficPolicy = topic.ExternalTrafficPolicy
+			}
+			if err := validateServiceTrafficPolicyCompatibility(effectiveServiceType, effectiveExternalTrafficPolicy); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q effective externalTrafficPolicy is invalid: %v", tenantName, topicName, err))
 			}
 			issues = append(issues, validateOPAResourcesAtPath(fmt.Sprintf("tenant %q topic %q opaResources", tenantName, topicName), topic.OPAResources)...)
 			effectiveResources := mergeResourceRequirements(normalizeResourceRequirements(spec.ControlPlane.OPAResources), normalizeResourceRequirements(topic.OPAResources))
@@ -308,6 +330,34 @@ func validateKubernetesServiceType(serviceType string) error {
 		return nil
 	default:
 		return fmt.Errorf("must be one of ClusterIP, NodePort, or LoadBalancer")
+	}
+}
+
+func validateExternalTrafficPolicy(policy string) error {
+	trimmed := strings.TrimSpace(policy)
+	if trimmed == "" {
+		return nil
+	}
+	switch trimmed {
+	case "Cluster", "Local":
+		return nil
+	default:
+		return fmt.Errorf("must be Cluster or Local")
+	}
+}
+
+func validateServiceTrafficPolicyCompatibility(serviceType, externalTrafficPolicy string) error {
+	trimmedPolicy := strings.TrimSpace(externalTrafficPolicy)
+	if trimmedPolicy == "" {
+		return nil
+	}
+	switch strings.TrimSpace(serviceType) {
+	case "NodePort", "LoadBalancer":
+		return nil
+	case "":
+		return fmt.Errorf("requires serviceType NodePort or LoadBalancer, got ClusterIP")
+	default:
+		return fmt.Errorf("requires serviceType NodePort or LoadBalancer, got %s", strings.TrimSpace(serviceType))
 	}
 }
 
@@ -444,12 +494,14 @@ func normalize(spec Specification) Specification {
 	if normalized.ControlPlane.ServiceType == "" {
 		normalized.ControlPlane.ServiceType = "ClusterIP"
 	}
+	normalized.ControlPlane.ExternalTrafficPolicy = strings.TrimSpace(normalized.ControlPlane.ExternalTrafficPolicy)
 	normalized.ControlPlane.OPAResources = normalizeResourceRequirements(normalized.ControlPlane.OPAResources)
 	for i := range normalized.Tenants {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)
 		for j := range normalized.Tenants[i].Topics {
 			normalized.Tenants[i].Topics[j].Name = strings.TrimSpace(normalized.Tenants[i].Topics[j].Name)
 			normalized.Tenants[i].Topics[j].ServiceType = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceType)
+			normalized.Tenants[i].Topics[j].ExternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].ExternalTrafficPolicy)
 			if strings.TrimSpace(normalized.Tenants[i].Topics[j].DecisionPath) == "" {
 				normalized.Tenants[i].Topics[j].DecisionPath = normalized.ControlPlane.DefaultDecisionPath
 			}

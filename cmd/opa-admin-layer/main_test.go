@@ -201,6 +201,7 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
     "serviceType": "LoadBalancer",
+    "externalTrafficPolicy": "Cluster",
     "serviceAnnotations": {
       "example.com/scope": "shared",
       "example.com/health-check-path": "/health"
@@ -213,6 +214,7 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
         {
           "name": "billing",
           "serviceType": "NodePort",
+          "externalTrafficPolicy": "Local",
           "serviceAnnotations": {
             "example.com/scope": "billing",
             "example.com/exposure": "public"
@@ -238,6 +240,7 @@ func TestRunRenderWritesTopicServiceOverrides(t *testing.T) {
 	service := string(serviceBytes)
 	for _, expected := range []string{
 		"type: NodePort",
+		"externalTrafficPolicy: Local",
 		`example.com/scope: "billing"`,
 		`example.com/exposure: "public"`,
 		`example.com/health-check-path: "/health"`,
@@ -287,5 +290,37 @@ func TestRunValidateRejectsOPAResourceRequestsAboveLimits(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "validation failed") {
 		t.Fatalf("expected resource budget validation failure, got %v", err)
+	}
+}
+
+func TestRunValidateRejectsExternalTrafficPolicyWithoutExternallyExposedService(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "externalTrafficPolicy": "Local"
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	err := run([]string{"validate", "-input", specPath})
+	if err == nil {
+		t.Fatal("expected validate to fail for incompatible externalTrafficPolicy")
+	}
+	if !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected validation failure, got %v", err)
 	}
 }

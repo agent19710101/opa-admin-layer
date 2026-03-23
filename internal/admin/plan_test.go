@@ -295,8 +295,9 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
-			BaseServiceURL: "https://control.example.com",
-			ServiceType:    "LoadBalancer",
+			BaseServiceURL:        "https://control.example.com",
+			ServiceType:           "LoadBalancer",
+			ExternalTrafficPolicy: "Local",
 			ServiceAnnotations: map[string]string{
 				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 				"example.com/health-check-path":                       "/health?plugins",
@@ -328,14 +329,18 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	if !strings.Contains(service, `example.com/health-check-path: "/health?plugins"`) {
 		t.Fatalf("expected service manifest to quote annotation values safely, got %q", service)
 	}
+	if !strings.Contains(service, "externalTrafficPolicy: Local") {
+		t.Fatalf("expected service manifest to include configured externalTrafficPolicy, got %q", service)
+	}
 }
 
 func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
-			BaseServiceURL: "https://control.example.com",
-			ServiceType:    "LoadBalancer",
+			BaseServiceURL:        "https://control.example.com",
+			ServiceType:           "LoadBalancer",
+			ExternalTrafficPolicy: "Cluster",
 			ServiceAnnotations: map[string]string{
 				"example.com/health-check-path": "/health",
 				"example.com/scope":             "shared",
@@ -344,8 +349,9 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 		Tenants: []Tenant{{
 			Name: "tenant-a",
 			Topics: []Topic{{
-				Name:        "billing",
-				ServiceType: "NodePort",
+				Name:                  "billing",
+				ServiceType:           "NodePort",
+				ExternalTrafficPolicy: "Local",
 				ServiceAnnotations: map[string]string{
 					"example.com/scope":    "billing",
 					"example.com/exposure": "public",
@@ -361,6 +367,7 @@ func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
 	for _, expected := range []string{
 		"type: NodePort",
+		"externalTrafficPolicy: Local",
 		`example.com/health-check-path: "/health"`,
 		`example.com/scope: "billing"`,
 		`example.com/exposure: "public"`,
@@ -577,12 +584,13 @@ func TestValidateRejectsRenderedResourceNamesThatExceedLengthBudget(t *testing.T
 	}
 }
 
-func TestValidateRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *testing.T) {
+func TestValidateRejectsInvalidServiceTypeTrafficPolicyAnnotationKeyAndEmptyOPAResources(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
-			BaseServiceURL: "https://control.example.com",
-			ServiceType:    "ExternalName",
+			BaseServiceURL:        "https://control.example.com",
+			ServiceType:           "ExternalName",
+			ExternalTrafficPolicy: "Edge",
 			ServiceAnnotations: map[string]string{
 				"Example.com/internal": "true",
 			},
@@ -607,6 +615,9 @@ func TestValidateRejectsInvalidServiceTypeAnnotationKeyAndEmptyOPAResources(t *t
 	if !strings.Contains(joined, `controlPlane.serviceAnnotations key "Example.com/internal" is invalid`) {
 		t.Fatalf("expected invalid service annotation key issue, got %#v", issues)
 	}
+	if !strings.Contains(joined, "controlPlane.externalTrafficPolicy is invalid") {
+		t.Fatalf("expected invalid external traffic policy issue, got %#v", issues)
+	}
 	if !strings.Contains(joined, "controlPlane.opaResources.requests must set cpu and/or memory") {
 		t.Fatalf("expected empty opaResources requests issue, got %#v", issues)
 	}
@@ -619,8 +630,9 @@ func TestValidateRejectsInvalidTopicServiceOverrides(t *testing.T) {
 		Tenants: []Tenant{{
 			Name: "tenant-a",
 			Topics: []Topic{{
-				Name:        "billing",
-				ServiceType: "ExternalName",
+				Name:                  "billing",
+				ServiceType:           "ExternalName",
+				ExternalTrafficPolicy: "Edge",
 				ServiceAnnotations: map[string]string{
 					"Example.com/internal": "true",
 				},
@@ -635,6 +647,53 @@ func TestValidateRejectsInvalidTopicServiceOverrides(t *testing.T) {
 	}
 	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" serviceAnnotations key "Example.com/internal" is invalid`) {
 		t.Fatalf("expected invalid topic service annotation key issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" externalTrafficPolicy is invalid`) {
+		t.Fatalf("expected invalid topic external traffic policy issue, got %#v", issues)
+	}
+}
+
+func TestValidateRejectsExternalTrafficPolicyWithoutExternallyExposedService(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:        "https://control.example.com",
+			ExternalTrafficPolicy: "Local",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `controlPlane.externalTrafficPolicy is invalid: requires serviceType NodePort or LoadBalancer, got ClusterIP`) {
+		t.Fatalf("expected shared externalTrafficPolicy compatibility issue, got %#v", issues)
+	}
+}
+
+func TestValidateRejectsInheritedExternalTrafficPolicyOnClusterIPTopic(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceType:    "NodePort",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:                  "billing",
+				ServiceType:           "ClusterIP",
+				ExternalTrafficPolicy: "Local",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" effective externalTrafficPolicy is invalid: requires serviceType NodePort or LoadBalancer, got ClusterIP`) {
+		t.Fatalf("expected effective topic externalTrafficPolicy compatibility issue, got %#v", issues)
 	}
 }
 

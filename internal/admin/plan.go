@@ -64,6 +64,10 @@ func BuildPlan(spec Specification) (Plan, error) {
 				effectiveServiceType = topic.ServiceType
 			}
 			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
+			effectiveExternalTrafficPolicy := normalized.ControlPlane.ExternalTrafficPolicy
+			if topic.ExternalTrafficPolicy != "" {
+				effectiveExternalTrafficPolicy = topic.ExternalTrafficPolicy
+			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -73,7 +77,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, listenPort, renderedLabels, effectiveServiceAnnotations),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -152,7 +156,7 @@ metadata:
 `, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
-func renderServiceYAML(name, workloadName, serviceType string, port int, labels, annotations map[string]string) string {
+func renderServiceYAML(name, workloadName, serviceType, externalTrafficPolicy string, port int, labels, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -160,14 +164,14 @@ metadata:
 %s  labels:
 %sspec:
   type: %s
-  selector:
+%s  selector:
     app.kubernetes.io/name: %s
   ports:
     - name: http
       port: %d
       targetPort: %d
       protocol: TCP
-`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, workloadName, port, port)
+`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), workloadName, port, port)
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {
@@ -230,6 +234,14 @@ func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string 
 		merged[key] = value
 	}
 	return merged
+}
+
+func renderExternalTrafficPolicySection(policy string, indent int) string {
+	trimmed := strings.TrimSpace(policy)
+	if trimmed == "" {
+		return ""
+	}
+	return fmt.Sprintf("%sexternalTrafficPolicy: %s\n", strings.Repeat(" ", indent), trimmed)
 }
 
 func renderAnnotationsSection(annotations map[string]string, indent int) string {
