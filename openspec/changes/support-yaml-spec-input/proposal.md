@@ -9,6 +9,7 @@ The admin layer currently only accepts JSON specs even though its primary output
 - accept YAML admin specs in the shared decode path used by CLI and REST flows
 - preserve strict field validation so unknown spec fields still fail early for both JSON and YAML
 - add regression coverage for CLI, shared admin decoding, and REST validation/plan generation paths
+- check in a repository-owned YAML example spec that mirrors the existing JSON example so operators can exercise the supported path directly
 - update repository docs and understanding notes to treat YAML as a supported ingestion format instead of an open question
 
 ## Impact

@@ -16,7 +16,7 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 - Service exposure defaults should stay small, but operators still need a controlled way to switch between ClusterIP, NodePort, and LoadBalancer without forking generated YAML.
 - Shared Service annotations are the next useful networking control after Service type selection; they let operators express controller/load-balancer metadata in the admin spec instead of patching generated manifests.
 - Shared OPA resource defaults are the next useful deployment control after image/probe/config/service realism; they let operators express baseline CPU/memory scheduling expectations in the admin spec instead of patching rendered Deployments.
-- Admin spec ingestion should match operator workflow realities by accepting both strict JSON and strict YAML through the same CLI and REST contract.
+- Admin spec ingestion should match operator workflow realities by accepting both strict JSON and strict YAML through the same CLI and REST contract, and the repository should carry runnable examples for both formats so that support is visible to operators.
 - `controlPlane.baseServiceURL` now follows the same up-front contract posture as Kubernetes-facing fields: validation requires an absolute HTTP(S) URL so bundle URL and OPA config rendering cannot silently normalize broken control-plane endpoints.
 - `controlPlane.defaultListenAddress` is now validated before render when provided, with an intentionally small accepted contract (`:port`, `host:port`, or bracketed IPv6 `host:port`) so generated OPA args, probes, and Service ports stay aligned.
 

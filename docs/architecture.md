@@ -62,6 +62,8 @@ Architecture update (2026-03-23, OPA resource quantity validation): shared `cont
 
 Architecture update (2026-03-23, YAML spec ingestion): spec decoding is now format-flexible but contract-strict. A single shared ingestion path accepts either JSON or YAML for CLI and REST flows, while unknown fields are still rejected before validation/render so YAML support does not reopen the loose-schema drift that the strict JSON decoder previously closed.
 
+Architecture update (2026-03-23, checked-in YAML example): the repository now carries a first-class YAML example spec alongside the JSON example. That keeps the supported operator input path visible and testable in-tree instead of leaving YAML as an implementation detail only covered by unit tests and README snippets.
+
 Architecture update (2026-03-23, control-plane URL validation): `controlPlane.baseServiceURL` is now treated as a first-class endpoint contract rather than a non-empty string. Validation requires an absolute HTTP(S) URL with a host and no fragment so bundle URL composition and rendered OPA config cannot be built from malformed control-plane input.
 
 Architecture update (2026-03-23, listen-address validation): `controlPlane.defaultListenAddress` is now treated as a shared socket contract instead of best-effort renderer input. Validation accepts only `:port`, `host:port`, or bracketed IPv6 `host:port` forms so the rendered OPA `--addr` argument, Deployment port/probe wiring, and Service target port all derive from the same parseable value.

@@ -54,6 +54,11 @@ Build first:
 make build
 ```
 
+The repository now ships matching example specs in both formats:
+
+- `deploy/examples/dev-spec.json`
+- `deploy/examples/dev-spec.yaml`
+
 Example API usage:
 
 ```bash

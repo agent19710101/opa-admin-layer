@@ -1,0 +1,28 @@
+name: opa-admin-layer-dev
+controlPlane:
+  baseServiceURL: https://control.example.com
+  bundlePrefix: bundles
+  defaultDecisionPath: system/authz/allow
+  defaultListenAddress: ":8181"
+  opaImage: openpolicyagent/opa:1.12.1
+  serviceType: ClusterIP
+  serviceAnnotations:
+    example.com/health-check-path: /health?plugins
+  opaResources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+tenants:
+  - name: tenant-a
+    topics:
+      - name: billing
+        labels:
+          environment: dev
+          owner: platform
+      - name: support
+        decisionPath: support/authz/allow
+  - name: tenant-b
+    topics:
+      - name: catalog

@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -52,5 +54,20 @@ tenants:
 	}
 	if !strings.Contains(err.Error(), "field unexpected not found") {
 		t.Fatalf("expected unknown field error, got %v", err)
+	}
+}
+
+func TestLoadSpecExamplesRemainEquivalentAcrossJSONAndYAML(t *testing.T) {
+	jsonSpec, err := LoadSpec(filepath.Join("..", "..", "deploy", "examples", "dev-spec.json"))
+	if err != nil {
+		t.Fatalf("load JSON example: %v", err)
+	}
+	yamlSpec, err := LoadSpec(filepath.Join("..", "..", "deploy", "examples", "dev-spec.yaml"))
+	if err != nil {
+		t.Fatalf("load YAML example: %v", err)
+	}
+
+	if !reflect.DeepEqual(normalize(jsonSpec), normalize(yamlSpec)) {
+		t.Fatalf("expected checked-in JSON and YAML examples to stay equivalent\njson: %#v\nyaml: %#v", normalize(jsonSpec), normalize(yamlSpec))
 	}
 }
