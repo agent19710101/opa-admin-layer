@@ -66,6 +66,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 			}
 			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
 			effectiveDeploymentAnnotations := mergeStringMap(normalized.ControlPlane.DeploymentAnnotations, topic.DeploymentAnnotations)
+			effectiveDeploymentLabels := mergeStringMap(normalized.ControlPlane.DeploymentLabels, topic.DeploymentLabels)
+			renderedDeploymentLabels := mergeProtectedStringMap(renderedLabels, effectiveDeploymentLabels, builtInLabels)
 			effectivePodAnnotations := mergeStringMap(normalized.ControlPlane.PodAnnotations, topic.PodAnnotations)
 			effectivePodLabels := mergeStringMap(normalized.ControlPlane.PodLabels, topic.PodLabels)
 			renderedPodLabels := mergeProtectedStringMap(renderedLabels, effectivePodLabels, builtInLabels)
@@ -94,7 +96,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveResources),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
@@ -128,7 +130,7 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, labels, deploymentAnnotations, podAnnotations, podLabels map[string]string, resources ResourceRequirements) string {
+func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -171,7 +173,7 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(labels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(podLabels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
+`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(deploymentLabels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(podLabels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
 func renderServiceYAML(name, namespace, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {

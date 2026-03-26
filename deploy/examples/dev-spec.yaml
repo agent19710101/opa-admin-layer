@@ -15,6 +15,9 @@ controlPlane:
   deploymentAnnotations:
     example.com/owner: platform
     example.com/revision-window: shared
+  deploymentLabels:
+    example.com/release-track: shared
+    example.com/team: platform
   podAnnotations:
     sidecar.istio.io/inject: "false"
     example.com/trace-sampling: shared
@@ -45,6 +48,9 @@ tenants:
         deploymentAnnotations:
           example.com/revision-window: billing
           example.com/rollout: canary
+        deploymentLabels:
+          example.com/release-track: billing
+          example.com/ring: canary
         podAnnotations:
           example.com/trace-sampling: billing
           example.com/debug: enabled

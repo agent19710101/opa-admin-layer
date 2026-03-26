@@ -1123,3 +1123,92 @@ func TestValidateRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlanMergesTopicDeploymentLabelsOverSharedDefaultsWithoutMutatingOtherObjects(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			DeploymentLabels: map[string]string{
+				"example.com/release-track": "shared",
+				"example.com/team":          "platform",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"example.com/team": "topic-metadata",
+				},
+				DeploymentLabels: map[string]string{
+					"example.com/release-track": "billing",
+					"example.com/ring":          "canary",
+					"app.kubernetes.io/name":    "do-not-override",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	for _, expected := range []string{
+		`example.com/release-track: "billing"`,
+		`example.com/ring: "canary"`,
+		`example.com/team: "platform"`,
+		`app.kubernetes.io/name: "demo-tenant-a-billing-opa"`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
+		}
+	}
+	if strings.Contains(deployment, `app.kubernetes.io/name: "do-not-override"`) {
+		t.Fatalf("expected built-in deployment label to remain immutable, got %q", deployment)
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	for _, manifest := range []string{service, configMap} {
+		if strings.Contains(manifest, `example.com/release-track`) || strings.Contains(manifest, `example.com/ring`) {
+			t.Fatalf("expected deployment labels to stay deployment-scoped, got %q", manifest)
+		}
+	}
+}
+
+func TestValidateRejectsInvalidDeploymentLabelKeysAndValues(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			DeploymentLabels: map[string]string{
+				"Example.com/shared": "ok",
+				"example.com/value":  "bad!",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				DeploymentLabels: map[string]string{
+					"Example.com/topic": "ok",
+					"example.com/track": "bad!",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.deploymentLabels key "Example.com/shared" is invalid`,
+		`controlPlane.deploymentLabels label "example.com/value" has invalid value "bad!"`,
+		`tenant "tenant-a" topic "billing" deploymentLabels key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" deploymentLabels label "example.com/track" has invalid value "bad!"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid deployment label issue %q, got %#v", expected, issues)
+		}
+	}
+}

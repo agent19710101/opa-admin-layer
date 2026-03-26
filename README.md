@@ -122,6 +122,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
+- optional shared `controlPlane.deploymentLabels` plus topic-level overrides so rendered Deployment metadata can carry rollout tracking, ownership, or GitOps labels without mutating Services, ConfigMaps, or pod templates
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
 - optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
@@ -162,6 +163,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
       "example.com/owner": "platform",
       "example.com/revision-window": "shared"
     },
+    "deploymentLabels": {
+      "example.com/release-track": "shared",
+      "example.com/team": "platform"
+    },
     "podAnnotations": {
       "sidecar.istio.io/inject": "false",
       "example.com/trace-sampling": "shared"
@@ -198,6 +203,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
           "deploymentAnnotations": {
             "example.com/revision-window": "billing",
             "example.com/rollout": "canary"
+          },
+          "deploymentLabels": {
+            "example.com/release-track": "billing",
+            "example.com/ring": "canary"
           },
           "podAnnotations": {
             "example.com/trace-sampling": "billing",

@@ -422,3 +422,25 @@ func TestValidateEndpointRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing
 		}
 	}
 }
+
+func TestValidateEndpointRejectsInvalidDeploymentLabels(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","deploymentLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","deploymentLabels":{"Example.com/topic":"ok","example.com/track":"bad!"}}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`controlPlane.deploymentLabels key`),
+		[]byte(`controlPlane.deploymentLabels label`),
+		[]byte(`deploymentLabels key \"Example.com/topic\" is invalid`),
+		[]byte(`deploymentLabels label \"example.com/track\" has invalid value`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid deployment label error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
