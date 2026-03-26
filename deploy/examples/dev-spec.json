@@ -6,6 +6,7 @@
     "defaultDecisionPath": "system/authz/allow",
     "defaultListenAddress": ":8181",
     "opaImage": "openpolicyagent/opa:1.12.1",
+    "namespace": "policy-system",
     "serviceType": "ClusterIP",
     "internalTrafficPolicy": "Cluster",
     "sessionAffinity": "ClientIP",

@@ -76,6 +76,8 @@ Architecture update (2026-03-23, YAML spec ingestion): spec decoding is now form
 
 Architecture update (2026-03-26, REST content-type contract): the REST API now treats request media type as part of the operator contract instead of silently attempting to decode any posted body. `/v1/validate` and `/v1/plans` accept `application/json`, `application/yaml`, `application/x-yaml`, `text/yaml`, `text/x-yaml`, or an empty `Content-Type` for simple callers, and they return `415 Unsupported Media Type` for other request types.
 
+Architecture update (2026-03-26, shared Kubernetes namespace): rendered workload placement is now a shared control-plane concern instead of an implicit default-namespace assumption. `controlPlane.namespace` optionally fans out to every generated ConfigMap, Deployment, and Service manifest, while validation keeps the first slice narrow by requiring a Kubernetes namespace-compatible DNS label and leaving per-topic namespace overrides out of scope.
+
 Architecture update (2026-03-23, checked-in YAML example): the repository now carries a first-class YAML example spec alongside the JSON example. That keeps the supported operator input path visible and testable in-tree instead of leaving YAML as an implementation detail only covered by unit tests and README snippets.
 
 Architecture update (2026-03-23, control-plane URL validation): `controlPlane.baseServiceURL` is now treated as a first-class endpoint contract rather than a non-empty string. Validation requires an absolute HTTP(S) URL with a host and no fragment so bundle URL composition and rendered OPA config cannot be built from malformed control-plane input.

@@ -36,6 +36,28 @@ func TestValidateRejectsInvalidBaseServiceURL(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsInvalidNamespace(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Namespace:      "Team-A",
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	if len(issues) == 0 {
+		t.Fatal("expected invalid namespace issue")
+	}
+	if !strings.Contains(strings.Join(issues, "\n"), "controlPlane.namespace is invalid") {
+		t.Fatalf("expected namespace validation issue, got %#v", issues)
+	}
+}
+
 func TestValidateAllowsExplicitListenAddressShapes(t *testing.T) {
 	tests := map[string]string{
 		"portOnly":     ":8181",
@@ -296,6 +318,7 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL:        "https://control.example.com",
+			Namespace:             "policy-system",
 			ServiceType:           "LoadBalancer",
 			ExternalTrafficPolicy: "Local",
 			InternalTrafficPolicy: "Local",
@@ -315,7 +338,17 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildPlan returned error: %v", err)
 	}
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
 	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	if got := plan.Tenants[0].Topics[0].Namespace; got != "policy-system" {
+		t.Fatalf("expected topic plan namespace to be recorded, got %q", got)
+	}
+	for _, manifest := range []string{configMap, deployment, service} {
+		if !strings.Contains(manifest, "namespace: policy-system") {
+			t.Fatalf("expected manifest to include configured namespace, got %q", manifest)
+		}
+	}
 	if !strings.Contains(service, "type: LoadBalancer") {
 		t.Fatalf("expected service manifest to use configured service type, got %q", service)
 	}

@@ -37,6 +37,7 @@ type ControlPlane struct {
 	DefaultDecisionPath   string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
 	DefaultListenAddress  string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
 	OPAImage              string               `json:"opaImage" yaml:"opaImage"`
+	Namespace             string               `json:"namespace" yaml:"namespace"`
 	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
 	ExternalTrafficPolicy string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
@@ -144,6 +145,9 @@ func Validate(spec Specification) []string {
 	}
 	if err := validateListenAddress(spec.ControlPlane.DefaultListenAddress); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.defaultListenAddress is invalid: %v", err))
+	}
+	if err := validateNamespace(spec.ControlPlane.Namespace); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.namespace is invalid: %v", err))
 	}
 	seenTenants := map[string]struct{}{}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
@@ -307,6 +311,14 @@ func validateDNS1123Subdomain(value string) error {
 		}
 	}
 	return nil
+}
+
+func validateNamespace(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return validateRenderedResourceName(trimmed)
 }
 
 func validateBaseServiceURL(raw string) error {
@@ -532,6 +544,7 @@ func normalize(spec Specification) Specification {
 	if strings.TrimSpace(normalized.ControlPlane.OPAImage) == "" {
 		normalized.ControlPlane.OPAImage = DefaultOPAImage
 	}
+	normalized.ControlPlane.Namespace = strings.TrimSpace(normalized.ControlPlane.Namespace)
 	normalized.ControlPlane.ServiceType = strings.TrimSpace(normalized.ControlPlane.ServiceType)
 	if normalized.ControlPlane.ServiceType == "" {
 		normalized.ControlPlane.ServiceType = "ClusterIP"

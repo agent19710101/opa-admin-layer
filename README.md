@@ -118,6 +118,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - declared OPA container ports and default readiness/liveness probes derived from the normalized listen address
 - propagated per-topic Kubernetes labels from the admin spec into generated manifests, with Kubernetes label syntax validation at ingest time
 - rendered Kubernetes Deployment/ConfigMap/Service names validated up front so spec, tenant, and topic identifiers cannot produce invalid workload object names
+- optional shared rendered Kubernetes namespace via `controlPlane.namespace` so generated ConfigMap, Deployment, and Service manifests can land outside the default namespace without downstream patching
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
@@ -140,7 +141,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared Service metadata, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared namespace, Service metadata, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {

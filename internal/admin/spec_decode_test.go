@@ -11,6 +11,7 @@ func TestDecodeSpecAcceptsYAML(t *testing.T) {
 	payload := []byte(`name: demo
 controlPlane:
   baseServiceURL: https://control.example.com
+  namespace: policy-system
   serviceAnnotations:
     example.com/internal: "true"
 tenants:
@@ -28,6 +29,9 @@ tenants:
 	}
 	if spec.ControlPlane.BaseServiceURL != "https://control.example.com" {
 		t.Fatalf("unexpected baseServiceURL: %q", spec.ControlPlane.BaseServiceURL)
+	}
+	if spec.ControlPlane.Namespace != "policy-system" {
+		t.Fatalf("unexpected namespace: %q", spec.ControlPlane.Namespace)
 	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)

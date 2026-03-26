@@ -27,6 +27,7 @@ type TopicPlan struct {
 	BundleURL              string            `json:"bundleURL"`
 	DecisionPath           string            `json:"decisionPath"`
 	ListenAddress          string            `json:"listenAddress"`
+	Namespace              string            `json:"namespace,omitempty"`
 	Labels                 map[string]string `json:"labels,omitempty"`
 	OPAConfigYAML          string            `json:"opaConfigYAML"`
 	ConfigMapManifestYAML  string            `json:"configMapManifestYAML"`
@@ -81,11 +82,12 @@ func BuildPlan(spec Specification) (Plan, error) {
 				BundleURL:              bundleURL,
 				DecisionPath:           topic.DecisionPath,
 				ListenAddress:          normalized.ControlPlane.DefaultListenAddress,
+				Namespace:              normalized.ControlPlane.Namespace,
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
-				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
+				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -105,25 +107,25 @@ bundles:
 `, baseURL, bundleResource)
 }
 
-func renderConfigMapYAML(name, opaConfig string, labels map[string]string) string {
+func renderConfigMapYAML(name, namespace, opaConfig string, labels map[string]string) string {
 	indentedConfig := strings.ReplaceAll(strings.TrimRight(opaConfig, "\n"), "\n", "\n    ")
 	return fmt.Sprintf(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: %s
-  labels:
+%s  labels:
 %sdata:
   opa-config.yaml: |
     %s
-`, name, renderStringMapBlock(labels, 4), indentedConfig)
+`, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, listenAddress string, containerPort int, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
+func renderDeploymentYAML(name, namespace, listenAddress string, containerPort int, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: %s
-  labels:
+%s  labels:
 %sspec:
   replicas: 1
   selector:
@@ -161,15 +163,15 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
+`, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
-func renderServiceYAML(name, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {
+func renderServiceYAML(name, namespace, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
   name: %s
-%s  labels:
+%s%s  labels:
 %sspec:
   type: %s
 %s%s%s  selector:
@@ -179,7 +181,7 @@ metadata:
       port: %d
       targetPort: %d
       protocol: TCP
-`, name, renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), renderInternalTrafficPolicySection(internalTrafficPolicy, 2), renderSessionAffinitySection(sessionAffinity, 2), workloadName, port, port)
+`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), renderInternalTrafficPolicySection(internalTrafficPolicy, 2), renderSessionAffinitySection(sessionAffinity, 2), workloadName, port, port)
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {
@@ -242,6 +244,14 @@ func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string 
 		merged[key] = value
 	}
 	return merged
+}
+
+func renderNamespaceSection(namespace string, indent int) string {
+	trimmed := strings.TrimSpace(namespace)
+	if trimmed == "" {
+		return ""
+	}
+	return fmt.Sprintf("%snamespace: %s\n", strings.Repeat(" ", indent), trimmed)
 }
 
 func renderExternalTrafficPolicySection(policy string, indent int) string {
