@@ -33,6 +33,7 @@ type TopicPlan struct {
 	ConfigMapManifestYAML  string            `json:"configMapManifestYAML"`
 	DeploymentManifestYAML string            `json:"deploymentManifestYAML"`
 	ServiceManifestYAML    string            `json:"serviceManifestYAML"`
+	HPAManifestYAML        string            `json:"hpaManifestYAML,omitempty"`
 }
 
 func BuildPlan(spec Specification) (Plan, error) {
@@ -100,9 +101,23 @@ func BuildPlan(spec Specification) (Plan, error) {
 			if topic.Replicas != 0 {
 				effectiveReplicas = topic.Replicas
 			}
+			var effectiveAutoscaling *Autoscaling
+			if normalized.ControlPlane.Autoscaling != nil {
+				effectiveAutoscaling = normalized.ControlPlane.Autoscaling
+			}
+			if topic.Autoscaling != nil {
+				effectiveAutoscaling = topic.Autoscaling
+			}
+			if effectiveAutoscaling != nil {
+				effectiveReplicas = effectiveAutoscaling.MinReplicas
+			}
 			effectiveImagePullPolicy := normalized.ControlPlane.ImagePullPolicy
 			if topic.ImagePullPolicy != "" {
 				effectiveImagePullPolicy = topic.ImagePullPolicy
+			}
+			var hpaManifestYAML string
+			if effectiveAutoscaling != nil {
+				hpaManifestYAML = renderHPAYAML(workloadName, normalized.ControlPlane.Namespace, effectiveAutoscaling)
 			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
@@ -115,6 +130,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
+				HPAManifestYAML:        hpaManifestYAML,
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -209,6 +225,28 @@ metadata:
       targetPort: %d
       protocol: TCP
 `, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), serviceType, renderExternalTrafficPolicySection(externalTrafficPolicy, 2), renderInternalTrafficPolicySection(internalTrafficPolicy, 2), renderSessionAffinitySection(sessionAffinity, 2), workloadName, port, port)
+}
+
+func renderHPAYAML(name, namespace string, autoscaling *Autoscaling) string {
+	return fmt.Sprintf(`apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: %s
+%sspec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: %s
+  minReplicas: %d
+  maxReplicas: %d
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: %d
+`, name, renderNamespaceSection(namespace, 2), name, autoscaling.MinReplicas, autoscaling.MaxReplicas, autoscaling.TargetCPUUtilizationPercentage)
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {

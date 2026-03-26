@@ -1774,3 +1774,78 @@ func TestValidateRejectsInvalidImagePullPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlanRendersHPAFromInheritedAutoscaling(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Autoscaling: &Autoscaling{
+				MinReplicas:                    2,
+				MaxReplicas:                    6,
+				TargetCPUUtilizationPercentage: 70,
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	topic := plan.Tenants[0].Topics[0]
+	if !strings.Contains(topic.DeploymentManifestYAML, "replicas: 2") {
+		t.Fatalf("expected deployment replicas to follow autoscaling minReplicas, got %q", topic.DeploymentManifestYAML)
+	}
+	for _, expected := range []string{
+		"kind: HorizontalPodAutoscaler",
+		"name: demo-tenant-a-billing",
+		"minReplicas: 2",
+		"maxReplicas: 6",
+		"averageUtilization: 70",
+	} {
+		if !strings.Contains(topic.HPAManifestYAML, expected) {
+			t.Fatalf("expected HPA manifest to contain %q, got %q", expected, topic.HPAManifestYAML)
+		}
+	}
+}
+
+func TestValidateRejectsConflictingOrInvalidAutoscaling(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Replicas:       2,
+			Autoscaling: &Autoscaling{
+				MinReplicas:                    3,
+				MaxReplicas:                    1,
+				TargetCPUUtilizationPercentage: 101,
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:     "billing",
+				Replicas: 4,
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		"controlPlane.autoscaling.maxReplicas must be greater than or equal to minReplicas",
+		"controlPlane.autoscaling.targetCPUUtilizationPercentage must be between 1 and 100",
+		"controlPlane.replicas is invalid: cannot be set when controlPlane.autoscaling is configured",
+		`tenant "tenant-a" topic "billing" replicas is invalid: cannot be set when controlPlane.autoscaling is configured`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected autoscaling issue %q, got %#v", expected, issues)
+		}
+	}
+}

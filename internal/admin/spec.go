@@ -55,6 +55,7 @@ type ControlPlane struct {
 	InternalTrafficPolicy        string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
 	SessionAffinity              string               `json:"sessionAffinity" yaml:"sessionAffinity"`
 	OPAResources                 ResourceRequirements `json:"opaResources" yaml:"opaResources"`
+	Autoscaling                  *Autoscaling         `json:"autoscaling" yaml:"autoscaling"`
 }
 
 type ResourceRequirements struct {
@@ -65,6 +66,12 @@ type ResourceRequirements struct {
 type ResourceList struct {
 	CPU    string `json:"cpu,omitempty" yaml:"cpu,omitempty"`
 	Memory string `json:"memory,omitempty" yaml:"memory,omitempty"`
+}
+
+type Autoscaling struct {
+	MinReplicas                    int `json:"minReplicas,omitempty" yaml:"minReplicas,omitempty"`
+	MaxReplicas                    int `json:"maxReplicas,omitempty" yaml:"maxReplicas,omitempty"`
+	TargetCPUUtilizationPercentage int `json:"targetCPUUtilizationPercentage,omitempty" yaml:"targetCPUUtilizationPercentage,omitempty"`
 }
 
 type Tenant struct {
@@ -102,6 +109,7 @@ type Topic struct {
 	InternalTrafficPolicy        string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
 	SessionAffinity              string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
 	OPAResources                 ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
+	Autoscaling                  *Autoscaling         `json:"autoscaling,omitempty" yaml:"autoscaling,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -187,6 +195,10 @@ func Validate(spec Specification) []string {
 	}
 	if err := validateServiceAccountName(spec.ControlPlane.ServiceAccountName); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountName is invalid: %v", err))
+	}
+	issues = append(issues, validateAutoscalingAtPath("controlPlane.autoscaling", spec.ControlPlane.Autoscaling)...)
+	if spec.ControlPlane.Autoscaling != nil && spec.ControlPlane.Replicas != 0 {
+		issues = append(issues, "controlPlane.replicas is invalid: cannot be set when controlPlane.autoscaling is configured")
 	}
 	seenTenants := map[string]struct{}{}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
@@ -297,6 +309,13 @@ func Validate(spec Specification) []string {
 			}
 			if err := validateServiceAccountName(topic.ServiceAccountName); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountName is invalid: %v", tenantName, topicName, err))
+			}
+			issues = append(issues, validateAutoscalingAtPath(fmt.Sprintf("tenant %q topic %q autoscaling", tenantName, topicName), topic.Autoscaling)...)
+			if topic.Autoscaling != nil && topic.Replicas != 0 {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: cannot be set when autoscaling is configured", tenantName, topicName))
+			}
+			if spec.ControlPlane.Autoscaling != nil && topic.Autoscaling == nil && topic.Replicas != 0 {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: cannot be set when controlPlane.autoscaling is configured", tenantName, topicName))
 			}
 			for labelKey, labelValue := range topic.Labels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
@@ -476,6 +495,32 @@ func validateReplicas(value int) error {
 		return fmt.Errorf("must be zero or greater")
 	}
 	return nil
+}
+
+func validateAutoscalingAtPath(path string, value *Autoscaling) []string {
+	if value == nil {
+		return nil
+	}
+	var issues []string
+	if value.MinReplicas == 0 {
+		issues = append(issues, fmt.Sprintf("%s.minReplicas must be greater than zero", path))
+	} else if value.MinReplicas < 0 {
+		issues = append(issues, fmt.Sprintf("%s.minReplicas must be greater than zero", path))
+	}
+	if value.MaxReplicas == 0 {
+		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than zero", path))
+	} else if value.MaxReplicas < 0 {
+		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than zero", path))
+	}
+	if value.TargetCPUUtilizationPercentage == 0 {
+		issues = append(issues, fmt.Sprintf("%s.targetCPUUtilizationPercentage must be between 1 and 100", path))
+	} else if value.TargetCPUUtilizationPercentage < 1 || value.TargetCPUUtilizationPercentage > 100 {
+		issues = append(issues, fmt.Sprintf("%s.targetCPUUtilizationPercentage must be between 1 and 100", path))
+	}
+	if value.MinReplicas > 0 && value.MaxReplicas > 0 && value.MaxReplicas < value.MinReplicas {
+		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than or equal to minReplicas", path))
+	}
+	return issues
 }
 
 func validateImagePullPolicy(value string) error {

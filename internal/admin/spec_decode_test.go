@@ -159,3 +159,33 @@ func TestLoadSpecExamplesRemainEquivalentAcrossJSONAndYAML(t *testing.T) {
 		t.Fatalf("expected checked-in JSON and YAML examples to stay equivalent\njson: %#v\nyaml: %#v", normalize(jsonSpec), normalize(yamlSpec))
 	}
 }
+
+func TestDecodeSpecAcceptsAutoscalingYAML(t *testing.T) {
+	payload := []byte(`name: demo
+controlPlane:
+  baseServiceURL: https://control.example.com
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+tenants:
+  - name: tenant-a
+    topics:
+      - name: billing
+        autoscaling:
+          minReplicas: 3
+          maxReplicas: 7
+          targetCPUUtilizationPercentage: 80
+`)
+
+	spec, err := DecodeSpec(payload)
+	if err != nil {
+		t.Fatalf("DecodeSpec returned error: %v", err)
+	}
+	if spec.ControlPlane.Autoscaling == nil || spec.ControlPlane.Autoscaling.MinReplicas != 2 || spec.ControlPlane.Autoscaling.MaxReplicas != 5 || spec.ControlPlane.Autoscaling.TargetCPUUtilizationPercentage != 70 {
+		t.Fatalf("expected shared autoscaling to decode, got %#v", spec.ControlPlane.Autoscaling)
+	}
+	if spec.Tenants[0].Topics[0].Autoscaling == nil || spec.Tenants[0].Topics[0].Autoscaling.MinReplicas != 3 || spec.Tenants[0].Topics[0].Autoscaling.MaxReplicas != 7 || spec.Tenants[0].Topics[0].Autoscaling.TargetCPUUtilizationPercentage != 80 {
+		t.Fatalf("expected topic autoscaling to decode, got %#v", spec.Tenants[0].Topics[0].Autoscaling)
+	}
+}

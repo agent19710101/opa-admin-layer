@@ -48,3 +48,4 @@ Ship the workflow system first, then use it to ship the smallest useful vertical
 
 - Service metadata now supports shared/topic `serviceLabels` so Service-only ownership, GitOps, or discovery labels can be rendered without mutating Deployments, ConfigMaps, or pod templates.
 - Topics can now explicitly remove inherited Service, ConfigMap, Deployment, and pod annotation/label keys through narrow `remove*Annotations` and `remove*Labels` lists, so one workload can drop a shared metadata default back to absent state without downstream patches.
+- Workload control now also supports shared and topic-level `autoscaling` blocks that render HorizontalPodAutoscaler manifests with CPU utilization targets, so generated OPA Deployments can scale beyond fixed replica counts without downstream patching.

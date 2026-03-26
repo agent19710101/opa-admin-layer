@@ -527,3 +527,44 @@ func TestRunRenderWritesTopicDeploymentAndPodAnnotations(t *testing.T) {
 		t.Fatalf("expected topic pod annotation override to replace shared value, got %s", deployment)
 	}
 }
+
+func TestRunRenderWritesAutoscalingManifest(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "autoscaling": {
+      "minReplicas": 2,
+      "maxReplicas": 5,
+      "targetCPUUtilizationPercentage": 75
+    }
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	hpa, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "hpa.yaml"))
+	if err != nil {
+		t.Fatalf("read hpa: %v", err)
+	}
+	if !strings.Contains(string(hpa), "kind: HorizontalPodAutoscaler") {
+		t.Fatalf("expected rendered hpa manifest, got %s", string(hpa))
+	}
+}

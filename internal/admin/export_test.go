@@ -19,6 +19,8 @@ func TestWritePlanTree(t *testing.T) {
 				OPAConfigYAML:          "services:\n  controlplane:\n",
 				ConfigMapManifestYAML:  "apiVersion: v1\nkind: ConfigMap\n",
 				DeploymentManifestYAML: "apiVersion: apps/v1\nkind: Deployment\n",
+				ServiceManifestYAML:    "apiVersion: v1\nkind: Service\n",
+				HPAManifestYAML:        "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\n",
 			}},
 		}},
 	}
@@ -66,5 +68,13 @@ func TestWritePlanTree(t *testing.T) {
 	}
 	if string(service) != plan.Tenants[0].Topics[0].ServiceManifestYAML {
 		t.Fatalf("service.yaml mismatch: got %q want %q", string(service), plan.Tenants[0].Topics[0].ServiceManifestYAML)
+	}
+
+	hpa, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "hpa.yaml"))
+	if err != nil {
+		t.Fatalf("read hpa.yaml: %v", err)
+	}
+	if string(hpa) != plan.Tenants[0].Topics[0].HPAManifestYAML {
+		t.Fatalf("hpa.yaml mismatch: got %q want %q", string(hpa), plan.Tenants[0].Topics[0].HPAManifestYAML)
 	}
 }

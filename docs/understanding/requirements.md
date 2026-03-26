@@ -50,3 +50,5 @@
 3. Prefer sidecar-style deployment defaults.
 4. Leave clear blockers when external capabilities are missing.
 5. Keep the repository runnable and testable after each meaningful change.
+32. Operators should be able to declare shared and topic-level `autoscaling` settings with CPU utilization targets so generated OPA workloads can emit HorizontalPodAutoscaler manifests without downstream patching.
+33. Autoscaling-managed workloads must reject conflicting fixed `replicas` settings so the generated Deployment replica count and HPA controller contract cannot drift apart.

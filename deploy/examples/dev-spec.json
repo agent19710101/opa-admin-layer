@@ -115,7 +115,12 @@
         },
         {
           "name": "support",
-          "decisionPath": "support/authz/allow"
+          "decisionPath": "support/authz/allow",
+          "autoscaling": {
+            "minReplicas": 2,
+            "maxReplicas": 6,
+            "targetCPUUtilizationPercentage": 70
+          }
         }
       ]
     },

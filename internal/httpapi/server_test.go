@@ -652,3 +652,41 @@ func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 		t.Fatalf("expected rendered automountServiceAccountToken in response, got %s", rec.Body.String())
 	}
 }
+
+func TestValidateEndpointRejectsConflictingAutoscalingAndReplicas(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","replicas":2,"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("controlPlane.replicas is invalid: cannot be set when controlPlane.autoscaling is configured")) {
+		t.Fatalf("expected autoscaling conflict error, got %s", rec.Body.String())
+	}
+}
+
+func TestPlanEndpointRendersAutoscalingManifest(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`"hpaManifestYAML":`),
+		[]byte(`kind: HorizontalPodAutoscaler`),
+		[]byte(`averageUtilization: 70`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected autoscaling plan response to contain %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
