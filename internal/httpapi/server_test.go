@@ -465,3 +465,39 @@ func TestValidateEndpointRejectsInvalidDeploymentLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEndpointRejectsInvalidServiceAccountName(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"OPA.Shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountName":"billing_opa"}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte("controlPlane.serviceAccountName"),
+		[]byte(`tenant \"tenant-a\" topic \"billing\" serviceAccountName`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid serviceAccountName error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
+func TestPlanEndpointRendersInheritedServiceAccountName(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`serviceAccountName: opa-shared`)) {
+		t.Fatalf("expected rendered serviceAccountName in response, got %s", rec.Body.String())
+	}
+}

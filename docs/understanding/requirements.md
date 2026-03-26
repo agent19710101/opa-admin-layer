@@ -36,7 +36,8 @@
 24. Operators should be able to declare shared `controlPlane.replicas` values and topic-level `replicas` overrides so rendered Deployments can scale beyond a single replica without downstream patching.
 25. Operators should be able to declare shared and topic-level `podLabels` values for rendered OPA pod templates so pod-only discovery, policy, or workload classification metadata can be expressed without mutating Services, ConfigMaps, or Deployment metadata.
 26. Operators should be able to declare shared `controlPlane.configMapAnnotations` values for rendered ConfigMaps so reloader, ownership, or GitOps metadata can be expressed without downstream patching, while keeping the first slice limited to ConfigMap object annotations only.
-27. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
+27. Operators should be able to declare shared and topic-level `serviceAccountName` values for rendered OPA Deployments so workload identity and RBAC binding can be selected without downstream patches.
+28. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
 
 ## Operational requirements
 

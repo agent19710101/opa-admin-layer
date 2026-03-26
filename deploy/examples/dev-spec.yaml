@@ -26,6 +26,7 @@ controlPlane:
   podLabels:
     example.com/workload-class: shared
     example.com/team: platform
+  serviceAccountName: opa-shared
   opaResources:
     requests:
       cpu: 100m
@@ -59,6 +60,7 @@ tenants:
         podLabels:
           example.com/workload-class: billing
           example.com/team: payments
+        serviceAccountName: billing-opa
         opaResources:
           requests:
             memory: 256Mi

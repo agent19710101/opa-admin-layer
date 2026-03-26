@@ -23,11 +23,13 @@ controlPlane:
     sidecar.istio.io/inject: "false"
   podLabels:
     example.com/workload-class: shared
+  serviceAccountName: opa-shared
 tenants:
   - name: tenant-a
     topics:
       - name: billing
         replicas: 5
+        serviceAccountName: billing-opa
         podLabels:
           example.com/workload-class: topic
 `)
@@ -63,11 +65,17 @@ tenants:
 	if got := spec.ControlPlane.PodLabels["example.com/workload-class"]; got != "shared" {
 		t.Fatalf("expected pod label to decode, got %q", got)
 	}
+	if spec.ControlPlane.ServiceAccountName != "opa-shared" {
+		t.Fatalf("expected shared serviceAccountName to decode, got %q", spec.ControlPlane.ServiceAccountName)
+	}
 	if len(spec.Tenants) != 1 || len(spec.Tenants[0].Topics) != 1 || spec.Tenants[0].Topics[0].Name != "billing" {
 		t.Fatalf("unexpected tenant/topic decode result: %#v", spec.Tenants)
 	}
 	if spec.Tenants[0].Topics[0].Replicas != 5 {
 		t.Fatalf("expected topic replicas to decode, got %d", spec.Tenants[0].Topics[0].Replicas)
+	}
+	if spec.Tenants[0].Topics[0].ServiceAccountName != "billing-opa" {
+		t.Fatalf("expected topic serviceAccountName to decode, got %q", spec.Tenants[0].Topics[0].ServiceAccountName)
 	}
 	if got := spec.Tenants[0].Topics[0].PodLabels["example.com/workload-class"]; got != "topic" {
 		t.Fatalf("expected topic pod label to decode, got %q", got)

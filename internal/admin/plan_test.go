@@ -1248,3 +1248,66 @@ func TestValidateRejectsInvalidDeploymentLabelKeysAndValues(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlanMergesTopicServiceAccountNameOverSharedDefault(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:               "billing",
+				ServiceAccountName: "billing-opa",
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingDeployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if !strings.Contains(billingDeployment, "serviceAccountName: billing-opa") {
+		t.Fatalf("expected topic serviceAccountName override in billing deployment, got %q", billingDeployment)
+	}
+	if strings.Contains(billingDeployment, "serviceAccountName: opa-shared") {
+		t.Fatalf("expected topic serviceAccountName override to replace shared value, got %q", billingDeployment)
+	}
+	supportDeployment := plan.Tenants[0].Topics[1].DeploymentManifestYAML
+	if !strings.Contains(supportDeployment, "serviceAccountName: opa-shared") {
+		t.Fatalf("expected support deployment to inherit shared serviceAccountName, got %q", supportDeployment)
+	}
+}
+
+func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "OPA.Shared",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:               "billing",
+				ServiceAccountName: "billing_opa",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		"controlPlane.serviceAccountName is invalid",
+		`tenant "tenant-a" topic "billing" serviceAccountName is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid serviceAccountName issue %q, got %#v", expected, issues)
+		}
+	}
+}
