@@ -11,6 +11,9 @@ controlPlane:
   sessionAffinity: ClientIP
   serviceAnnotations:
     example.com/health-check-path: /health?plugins
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
+    example.com/trace-sampling: shared
   opaResources:
     requests:
       cpu: 100m
@@ -31,6 +34,9 @@ tenants:
         serviceAnnotations:
           example.com/exposure: public
           example.com/health-check-path: /billing-health
+        podAnnotations:
+          example.com/trace-sampling: billing
+          example.com/debug: enabled
         opaResources:
           requests:
             memory: 256Mi

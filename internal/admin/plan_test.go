@@ -883,3 +883,75 @@ func TestValidateRejectsTopicOPAResourcesWhenMergedRequestsExceedInheritedLimits
 		}
 	}
 }
+
+func TestBuildPlanMergesTopicPodAnnotationsOverSharedDefaults(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			PodAnnotations: map[string]string{
+				"sidecar.istio.io/inject":    "false",
+				"example.com/trace-sampling": "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				PodAnnotations: map[string]string{
+					"example.com/trace-sampling": "billing",
+					"example.com/debug":          "enabled",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	for _, expected := range []string{
+		"annotations:",
+		`sidecar.istio.io/inject: "false"`,
+		`example.com/trace-sampling: "billing"`,
+		`example.com/debug: "enabled"`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
+		}
+	}
+	if strings.Contains(deployment, `example.com/trace-sampling: "shared"`) {
+		t.Fatalf("expected topic pod annotation override to replace shared value, got %q", deployment)
+	}
+}
+
+func TestValidateRejectsInvalidPodAnnotationKeys(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			PodAnnotations: map[string]string{
+				"Example.com/shared": "true",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				PodAnnotations: map[string]string{
+					"Example.com/topic": "true",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, `controlPlane.podAnnotations key "Example.com/shared" is invalid`) {
+		t.Fatalf("expected invalid shared pod annotation key issue, got %#v", issues)
+	}
+	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" podAnnotations key "Example.com/topic" is invalid`) {
+		t.Fatalf("expected invalid topic pod annotation key issue, got %#v", issues)
+	}
+}

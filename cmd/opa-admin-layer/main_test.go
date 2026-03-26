@@ -362,3 +362,58 @@ func TestRunValidateRejectsExternalTrafficPolicyWithoutExternallyExposedService(
 		t.Fatalf("expected validation failure, got %v", err)
 	}
 }
+
+func TestRunRenderWritesTopicPodAnnotations(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "podAnnotations": {
+      "sidecar.istio.io/inject": "false",
+      "example.com/trace-sampling": "shared"
+    }
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing",
+          "podAnnotations": {
+            "example.com/trace-sampling": "billing",
+            "example.com/debug": "enabled"
+          }
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))
+	if err != nil {
+		t.Fatalf("read deployment: %v", err)
+	}
+	deployment := string(deploymentBytes)
+	for _, expected := range []string{
+		"annotations:",
+		`sidecar.istio.io/inject: "false"`,
+		`example.com/trace-sampling: "billing"`,
+		`example.com/debug: "enabled"`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected rendered deployment to contain %q, got %s", expected, deployment)
+		}
+	}
+	if strings.Contains(deployment, `example.com/trace-sampling: "shared"`) {
+		t.Fatalf("expected topic pod annotation override to replace shared value, got %s", deployment)
+	}
+}

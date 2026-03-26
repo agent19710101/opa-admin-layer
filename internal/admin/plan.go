@@ -65,6 +65,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				effectiveServiceType = topic.ServiceType
 			}
 			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
+			effectivePodAnnotations := mergeStringMap(normalized.ControlPlane.PodAnnotations, topic.PodAnnotations)
 			effectiveExternalTrafficPolicy := normalized.ControlPlane.ExternalTrafficPolicy
 			if topic.ExternalTrafficPolicy != "" {
 				effectiveExternalTrafficPolicy = topic.ExternalTrafficPolicy
@@ -86,7 +87,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveResources),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectivePodAnnotations, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
@@ -120,7 +121,7 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, namespace, listenAddress string, containerPort int, image, configMapName string, labels map[string]string, resources ResourceRequirements) string {
+func renderDeploymentYAML(name, namespace, listenAddress string, containerPort int, image, configMapName string, labels, annotations map[string]string, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -133,7 +134,7 @@ metadata:
       app.kubernetes.io/name: %s
   template:
     metadata:
-      labels:
+%s      labels:
 %s    spec:
       volumes:
         - name: opa-config
@@ -163,7 +164,7 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), name, renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
+`, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), name, renderAnnotationsSection(annotations, 6), renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
 func renderServiceYAML(name, namespace, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {

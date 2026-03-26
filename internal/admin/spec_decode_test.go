@@ -14,6 +14,8 @@ controlPlane:
   namespace: policy-system
   serviceAnnotations:
     example.com/internal: "true"
+  podAnnotations:
+    sidecar.istio.io/inject: "false"
 tenants:
   - name: tenant-a
     topics:
@@ -35,6 +37,9 @@ tenants:
 	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)
+	}
+	if got := spec.ControlPlane.PodAnnotations["sidecar.istio.io/inject"]; got != "false" {
+		t.Fatalf("expected pod annotation to decode, got %q", got)
 	}
 	if len(spec.Tenants) != 1 || len(spec.Tenants[0].Topics) != 1 || spec.Tenants[0].Topics[0].Name != "billing" {
 		t.Fatalf("unexpected tenant/topic decode result: %#v", spec.Tenants)

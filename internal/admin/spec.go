@@ -40,6 +40,7 @@ type ControlPlane struct {
 	Namespace             string               `json:"namespace" yaml:"namespace"`
 	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	PodAnnotations        map[string]string    `json:"podAnnotations" yaml:"podAnnotations"`
 	ExternalTrafficPolicy string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
 	InternalTrafficPolicy string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
 	SessionAffinity       string               `json:"sessionAffinity" yaml:"sessionAffinity"`
@@ -68,6 +69,7 @@ type Topic struct {
 	Labels                map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
 	ServiceType           string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	PodAnnotations        map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
 	ExternalTrafficPolicy string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
 	InternalTrafficPolicy string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
 	SessionAffinity       string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
@@ -158,6 +160,11 @@ func Validate(spec Specification) []string {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
 		}
 	}
+	for annotationKey := range spec.ControlPlane.PodAnnotations {
+		if err := validateKubernetesLabelKey(annotationKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.podAnnotations key %q is invalid: %v", annotationKey, err))
+		}
+	}
 	if err := validateExternalTrafficPolicy(spec.ControlPlane.ExternalTrafficPolicy); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.externalTrafficPolicy is invalid: %v", err))
 	}
@@ -217,6 +224,11 @@ func Validate(spec Specification) []string {
 			for annotationKey := range topic.ServiceAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
+				}
+			}
+			for annotationKey := range topic.PodAnnotations {
+				if err := validateKubernetesLabelKey(annotationKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q podAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
 			if err := validateExternalTrafficPolicy(topic.ExternalTrafficPolicy); err != nil {
