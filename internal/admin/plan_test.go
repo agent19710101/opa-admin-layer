@@ -1284,6 +1284,44 @@ func TestBuildPlanMergesTopicServiceAccountNameOverSharedDefault(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicAutomountServiceAccountTokenOverSharedDefault(t *testing.T) {
+	sharedAutomount := false
+	topicAutomount := true
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:               "https://control.example.com",
+			ServiceAccountName:           "opa-shared",
+			AutomountServiceAccountToken: &sharedAutomount,
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:                         "billing",
+				AutomountServiceAccountToken: &topicAutomount,
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingDeployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if !strings.Contains(billingDeployment, "automountServiceAccountToken: true") {
+		t.Fatalf("expected topic automountServiceAccountToken override in billing deployment, got %q", billingDeployment)
+	}
+	if strings.Contains(billingDeployment, "automountServiceAccountToken: false") {
+		t.Fatalf("expected topic automountServiceAccountToken override to replace shared value, got %q", billingDeployment)
+	}
+	supportDeployment := plan.Tenants[0].Topics[1].DeploymentManifestYAML
+	if !strings.Contains(supportDeployment, "automountServiceAccountToken: false") {
+		t.Fatalf("expected support deployment to inherit shared automountServiceAccountToken, got %q", supportDeployment)
+	}
+}
+
 func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
 	spec := Specification{
 		Name: "demo",

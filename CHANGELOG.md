@@ -5,6 +5,7 @@
 - add shared `controlPlane.configMapAnnotations` support for rendered ConfigMap metadata with Kubernetes annotation-key validation
 - add shared/topic `podLabels` support for rendered Deployment pod templates with selector-safe inherited label merging
 - add shared/topic `serviceAccountName` support for rendered Deployment workload identity binding
+- add shared/topic `automountServiceAccountToken` support for rendered Deployment service-account token projection control
 
 - add shared `controlPlane.replicas` plus topic-level `replicas` overrides for rendered Deployment scaling
 - add shared/topic `deploymentAnnotations` support for rendered Deployment metadata with inherited annotation merging

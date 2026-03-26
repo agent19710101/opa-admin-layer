@@ -24,12 +24,14 @@ controlPlane:
   podLabels:
     example.com/workload-class: shared
   serviceAccountName: opa-shared
+  automountServiceAccountToken: false
 tenants:
   - name: tenant-a
     topics:
       - name: billing
         replicas: 5
         serviceAccountName: billing-opa
+        automountServiceAccountToken: true
         podLabels:
           example.com/workload-class: topic
 `)
@@ -68,6 +70,9 @@ tenants:
 	if spec.ControlPlane.ServiceAccountName != "opa-shared" {
 		t.Fatalf("expected shared serviceAccountName to decode, got %q", spec.ControlPlane.ServiceAccountName)
 	}
+	if spec.ControlPlane.AutomountServiceAccountToken == nil || *spec.ControlPlane.AutomountServiceAccountToken {
+		t.Fatalf("expected shared automountServiceAccountToken=false to decode, got %#v", spec.ControlPlane.AutomountServiceAccountToken)
+	}
 	if len(spec.Tenants) != 1 || len(spec.Tenants[0].Topics) != 1 || spec.Tenants[0].Topics[0].Name != "billing" {
 		t.Fatalf("unexpected tenant/topic decode result: %#v", spec.Tenants)
 	}
@@ -76,6 +81,9 @@ tenants:
 	}
 	if spec.Tenants[0].Topics[0].ServiceAccountName != "billing-opa" {
 		t.Fatalf("expected topic serviceAccountName to decode, got %q", spec.Tenants[0].Topics[0].ServiceAccountName)
+	}
+	if spec.Tenants[0].Topics[0].AutomountServiceAccountToken == nil || !*spec.Tenants[0].Topics[0].AutomountServiceAccountToken {
+		t.Fatalf("expected topic automountServiceAccountToken=true to decode, got %#v", spec.Tenants[0].Topics[0].AutomountServiceAccountToken)
 	}
 	if got := spec.Tenants[0].Topics[0].PodLabels["example.com/workload-class"]; got != "topic" {
 		t.Fatalf("expected topic pod label to decode, got %q", got)

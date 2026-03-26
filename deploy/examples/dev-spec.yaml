@@ -27,6 +27,7 @@ controlPlane:
     example.com/workload-class: shared
     example.com/team: platform
   serviceAccountName: opa-shared
+  automountServiceAccountToken: false
   opaResources:
     requests:
       cpu: 100m
@@ -61,6 +62,7 @@ tenants:
           example.com/workload-class: billing
           example.com/team: payments
         serviceAccountName: billing-opa
+        automountServiceAccountToken: true
         opaResources:
           requests:
             memory: 256Mi

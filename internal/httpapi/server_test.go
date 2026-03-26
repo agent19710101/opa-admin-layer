@@ -486,9 +486,9 @@ func TestValidateEndpointRejectsInvalidServiceAccountName(t *testing.T) {
 	}
 }
 
-func TestPlanEndpointRendersInheritedServiceAccountName(t *testing.T) {
+func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","automountServiceAccountToken":false},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -499,5 +499,8 @@ func TestPlanEndpointRendersInheritedServiceAccountName(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`serviceAccountName: opa-shared`)) {
 		t.Fatalf("expected rendered serviceAccountName in response, got %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`automountServiceAccountToken: false`)) {
+		t.Fatalf("expected rendered automountServiceAccountToken in response, got %s", rec.Body.String())
 	}
 }

@@ -127,6 +127,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
 - optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.serviceAccountName` plus topic-level overrides so rendered OPA Deployments can bind to explicit Kubernetes workload identities without downstream patches
+- optional shared `controlPlane.automountServiceAccountToken` plus topic-level overrides so rendered OPA Deployments can explicitly keep or disable service-account token projection without downstream patches
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
 - optional shared `controlPlane.internalTrafficPolicy` plus topic-level overrides so generated Services can steer in-cluster node-local routing (`Cluster` or `Local`) without downstream patching
 - optional shared `controlPlane.sessionAffinity` plus topic-level overrides so generated Services can express sticky-client routing (`None` or `ClientIP`) without downstream patching
@@ -147,7 +148,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared namespace, Service metadata, shared ConfigMap annotations, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared namespace, Service metadata, shared ConfigMap annotations, inherited/overridden service-account token automount, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
@@ -182,6 +183,7 @@ Example shared namespace, Service metadata, shared ConfigMap annotations, inheri
       "example.com/team": "platform"
     },
     "serviceAccountName": "opa-shared",
+    "automountServiceAccountToken": false,
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -224,6 +226,7 @@ Example shared namespace, Service metadata, shared ConfigMap annotations, inheri
             "example.com/team": "payments"
           },
           "serviceAccountName": "billing-opa",
+          "automountServiceAccountToken": true,
           "opaResources": {
             "requests": {
               "memory": "256Mi"

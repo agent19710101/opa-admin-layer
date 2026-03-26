@@ -34,6 +34,7 @@
       "example.com/team": "platform"
     },
     "serviceAccountName": "opa-shared",
+    "automountServiceAccountToken": false,
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -80,6 +81,7 @@
             "example.com/team": "payments"
           },
           "serviceAccountName": "billing-opa",
+          "automountServiceAccountToken": true,
           "opaResources": {
             "requests": {
               "memory": "256Mi"

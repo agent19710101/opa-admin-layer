@@ -32,25 +32,26 @@ type Specification struct {
 }
 
 type ControlPlane struct {
-	BaseServiceURL        string               `json:"baseServiceURL" yaml:"baseServiceURL"`
-	BundlePrefix          string               `json:"bundlePrefix" yaml:"bundlePrefix"`
-	DefaultDecisionPath   string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
-	DefaultListenAddress  string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
-	OPAImage              string               `json:"opaImage" yaml:"opaImage"`
-	Namespace             string               `json:"namespace" yaml:"namespace"`
-	Replicas              int                  `json:"replicas" yaml:"replicas"`
-	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
-	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
-	ConfigMapAnnotations  map[string]string    `json:"configMapAnnotations" yaml:"configMapAnnotations"`
-	DeploymentAnnotations map[string]string    `json:"deploymentAnnotations" yaml:"deploymentAnnotations"`
-	DeploymentLabels      map[string]string    `json:"deploymentLabels" yaml:"deploymentLabels"`
-	PodAnnotations        map[string]string    `json:"podAnnotations" yaml:"podAnnotations"`
-	PodLabels             map[string]string    `json:"podLabels" yaml:"podLabels"`
-	ServiceAccountName    string               `json:"serviceAccountName" yaml:"serviceAccountName"`
-	ExternalTrafficPolicy string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
-	InternalTrafficPolicy string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
-	SessionAffinity       string               `json:"sessionAffinity" yaml:"sessionAffinity"`
-	OPAResources          ResourceRequirements `json:"opaResources" yaml:"opaResources"`
+	BaseServiceURL               string               `json:"baseServiceURL" yaml:"baseServiceURL"`
+	BundlePrefix                 string               `json:"bundlePrefix" yaml:"bundlePrefix"`
+	DefaultDecisionPath          string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
+	DefaultListenAddress         string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
+	OPAImage                     string               `json:"opaImage" yaml:"opaImage"`
+	Namespace                    string               `json:"namespace" yaml:"namespace"`
+	Replicas                     int                  `json:"replicas" yaml:"replicas"`
+	ServiceType                  string               `json:"serviceType" yaml:"serviceType"`
+	ServiceAnnotations           map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	ConfigMapAnnotations         map[string]string    `json:"configMapAnnotations" yaml:"configMapAnnotations"`
+	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations" yaml:"deploymentAnnotations"`
+	DeploymentLabels             map[string]string    `json:"deploymentLabels" yaml:"deploymentLabels"`
+	PodAnnotations               map[string]string    `json:"podAnnotations" yaml:"podAnnotations"`
+	PodLabels                    map[string]string    `json:"podLabels" yaml:"podLabels"`
+	ServiceAccountName           string               `json:"serviceAccountName" yaml:"serviceAccountName"`
+	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken" yaml:"automountServiceAccountToken"`
+	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
+	InternalTrafficPolicy        string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
+	SessionAffinity              string               `json:"sessionAffinity" yaml:"sessionAffinity"`
+	OPAResources                 ResourceRequirements `json:"opaResources" yaml:"opaResources"`
 }
 
 type ResourceRequirements struct {
@@ -69,22 +70,23 @@ type Tenant struct {
 }
 
 type Topic struct {
-	Name                  string               `json:"name" yaml:"name"`
-	BundleResource        string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
-	DecisionPath          string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
-	Labels                map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Replicas              int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
-	ServiceType           string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
-	ServiceAnnotations    map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
-	DeploymentAnnotations map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
-	DeploymentLabels      map[string]string    `json:"deploymentLabels,omitempty" yaml:"deploymentLabels,omitempty"`
-	PodAnnotations        map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
-	PodLabels             map[string]string    `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
-	ServiceAccountName    string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
-	ExternalTrafficPolicy string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
-	SessionAffinity       string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
-	OPAResources          ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
+	Name                         string               `json:"name" yaml:"name"`
+	BundleResource               string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath                 string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels                       map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Replicas                     int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
+	ServiceType                  string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
+	ServiceAnnotations           map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
+	DeploymentLabels             map[string]string    `json:"deploymentLabels,omitempty" yaml:"deploymentLabels,omitempty"`
+	PodAnnotations               map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
+	PodLabels                    map[string]string    `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
+	ServiceAccountName           string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
+	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
+	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy        string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
+	SessionAffinity              string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
+	OPAResources                 ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
