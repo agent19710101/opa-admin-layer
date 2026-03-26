@@ -123,6 +123,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
+- optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
 - optional shared `controlPlane.internalTrafficPolicy` plus topic-level overrides so generated Services can steer in-cluster node-local routing (`Cluster` or `Local`) without downstream patching
 - optional shared `controlPlane.sessionAffinity` plus topic-level overrides so generated Services can express sticky-client routing (`None` or `ClientIP`) without downstream patching
@@ -165,6 +166,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
       "sidecar.istio.io/inject": "false",
       "example.com/trace-sampling": "shared"
     },
+    "podLabels": {
+      "example.com/workload-class": "shared",
+      "example.com/team": "platform"
+    },
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -197,6 +202,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
           "podAnnotations": {
             "example.com/trace-sampling": "billing",
             "example.com/debug": "enabled"
+          },
+          "podLabels": {
+            "example.com/workload-class": "billing",
+            "example.com/team": "payments"
           },
           "opaResources": {
             "requests": {

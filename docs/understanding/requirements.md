@@ -34,6 +34,7 @@
 22. `controlPlane.baseServiceURL` must be validated as an absolute HTTP(S) URL before render so generated bundle URLs cannot be built from malformed or relative control-plane input.
 23. `controlPlane.defaultListenAddress` must be validated as `:port`, `host:port`, or bracketed IPv6 `host:port` when provided so generated OPA args, Deployment probe ports, and Service ports cannot silently diverge.
 24. Operators should be able to declare shared `controlPlane.replicas` values and topic-level `replicas` overrides so rendered Deployments can scale beyond a single replica without downstream patching.
+25. Operators should be able to declare shared and topic-level `podLabels` values for rendered OPA pod templates so pod-only discovery, policy, or workload classification metadata can be expressed without mutating Services, ConfigMaps, or Deployment metadata.
 25. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
 
 ## Operational requirements

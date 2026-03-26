@@ -22,6 +22,10 @@
       "sidecar.istio.io/inject": "false",
       "example.com/trace-sampling": "shared"
     },
+    "podLabels": {
+      "example.com/workload-class": "shared",
+      "example.com/team": "platform"
+    },
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -58,6 +62,10 @@
           "podAnnotations": {
             "example.com/trace-sampling": "billing",
             "example.com/debug": "enabled"
+          },
+          "podLabels": {
+            "example.com/workload-class": "billing",
+            "example.com/team": "payments"
           },
           "opaResources": {
             "requests": {

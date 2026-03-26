@@ -942,6 +942,93 @@ func TestValidateRejectsTopicOPAResourcesWhenMergedRequestsExceedInheritedLimits
 	}
 }
 
+func TestBuildPlanMergesTopicPodLabelsOverSharedDefaultsWithoutBreakingBuiltIns(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			PodLabels: map[string]string{
+				"example.com/workload-class": "shared",
+				"example.com/team":           "platform",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"example.com/team": "topic-metadata",
+				},
+				PodLabels: map[string]string{
+					"example.com/workload-class": "topic",
+					"app.kubernetes.io/name":     "do-not-override",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	for _, expected := range []string{
+		`example.com/workload-class: "topic"`,
+		`example.com/team: "platform"`,
+		`app.kubernetes.io/name: demo-tenant-a-billing-opa`,
+	} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
+		}
+	}
+	if strings.Contains(deployment, `app.kubernetes.io/name: "do-not-override"`) {
+		t.Fatalf("expected built-in pod label to remain immutable, got %q", deployment)
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	for _, manifest := range []string{service, configMap} {
+		if strings.Contains(manifest, `example.com/workload-class`) {
+			t.Fatalf("expected pod labels to stay pod-scoped, got %q", manifest)
+		}
+	}
+}
+
+func TestValidateRejectsInvalidPodLabelKeysAndValues(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			PodLabels: map[string]string{
+				"Example.com/shared": "ok",
+				"example.com/value":  "bad!",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				PodLabels: map[string]string{
+					"Example.com/topic": "ok",
+					"example.com/track": "bad!",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.podLabels key "Example.com/shared" is invalid`,
+		`controlPlane.podLabels label "example.com/value" has invalid value "bad!"`,
+		`tenant "tenant-a" topic "billing" podLabels key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" podLabels label "example.com/track" has invalid value "bad!"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid pod label issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
 func TestBuildPlanMergesTopicDeploymentAndPodAnnotationsOverSharedDefaults(t *testing.T) {
 	spec := Specification{
 		Name: "demo",

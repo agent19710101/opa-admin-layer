@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- add shared/topic `podLabels` support for rendered Deployment pod templates with selector-safe inherited label merging
+
 - add shared `controlPlane.replicas` plus topic-level `replicas` overrides for rendered Deployment scaling
 - add shared/topic `deploymentAnnotations` support for rendered Deployment metadata with inherited annotation merging
 - add shared/topic `podAnnotations` support for rendered OPA pod templates with inherited annotation merging

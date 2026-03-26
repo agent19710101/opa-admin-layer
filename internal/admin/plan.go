@@ -67,6 +67,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
 			effectiveDeploymentAnnotations := mergeStringMap(normalized.ControlPlane.DeploymentAnnotations, topic.DeploymentAnnotations)
 			effectivePodAnnotations := mergeStringMap(normalized.ControlPlane.PodAnnotations, topic.PodAnnotations)
+			effectivePodLabels := mergeStringMap(normalized.ControlPlane.PodLabels, topic.PodLabels)
+			renderedPodLabels := mergeProtectedStringMap(renderedLabels, effectivePodLabels, builtInLabels)
 			effectiveExternalTrafficPolicy := normalized.ControlPlane.ExternalTrafficPolicy
 			if topic.ExternalTrafficPolicy != "" {
 				effectiveExternalTrafficPolicy = topic.ExternalTrafficPolicy
@@ -92,7 +94,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, effectiveResources),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
 		}
@@ -126,7 +128,7 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, labels, deploymentAnnotations, podAnnotations map[string]string, resources ResourceRequirements) string {
+func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, labels, deploymentAnnotations, podAnnotations, podLabels map[string]string, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -169,7 +171,7 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(labels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(labels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
+`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(labels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(podLabels, 8), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
 func renderServiceYAML(name, namespace, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {
@@ -245,6 +247,23 @@ func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string 
 	}
 	for key, value := range topicLabels {
 		if _, exists := merged[key]; exists {
+			continue
+		}
+		merged[key] = value
+	}
+	return merged
+}
+
+func mergeProtectedStringMap(base, override, protected map[string]string) map[string]string {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+	merged := make(map[string]string, len(base)+len(override))
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range override {
+		if _, blocked := protected[key]; blocked {
 			continue
 		}
 		merged[key] = value

@@ -19,11 +19,15 @@ controlPlane:
     example.com/owner: platform
   podAnnotations:
     sidecar.istio.io/inject: "false"
+  podLabels:
+    example.com/workload-class: shared
 tenants:
   - name: tenant-a
     topics:
       - name: billing
         replicas: 5
+        podLabels:
+          example.com/workload-class: topic
 `)
 
 	spec, err := DecodeSpec(payload)
@@ -51,11 +55,17 @@ tenants:
 	if got := spec.ControlPlane.PodAnnotations["sidecar.istio.io/inject"]; got != "false" {
 		t.Fatalf("expected pod annotation to decode, got %q", got)
 	}
+	if got := spec.ControlPlane.PodLabels["example.com/workload-class"]; got != "shared" {
+		t.Fatalf("expected pod label to decode, got %q", got)
+	}
 	if len(spec.Tenants) != 1 || len(spec.Tenants[0].Topics) != 1 || spec.Tenants[0].Topics[0].Name != "billing" {
 		t.Fatalf("unexpected tenant/topic decode result: %#v", spec.Tenants)
 	}
 	if spec.Tenants[0].Topics[0].Replicas != 5 {
 		t.Fatalf("expected topic replicas to decode, got %d", spec.Tenants[0].Topics[0].Replicas)
+	}
+	if got := spec.Tenants[0].Topics[0].PodLabels["example.com/workload-class"]; got != "topic" {
+		t.Fatalf("expected topic pod label to decode, got %q", got)
 	}
 }
 
