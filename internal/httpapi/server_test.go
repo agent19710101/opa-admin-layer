@@ -527,6 +527,27 @@ func TestPlanEndpointRendersMergedTopicServiceLabels(t *testing.T) {
 	}
 }
 
+func TestPlanEndpointAllowsRemovingInheritedMetadata(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAnnotations":{"example.com/shared":"true"},"serviceLabels":{"example.com/remove":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","removeServiceAnnotations":["example.com/shared"],"removeServiceLabels":["example.com/remove"]}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var plan admin.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("expected valid plan response JSON, got %v body=%s", err, rec.Body.String())
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	if bytes.Contains([]byte(service), []byte(`example.com/shared`)) || bytes.Contains([]byte(service), []byte(`example.com/remove`)) {
+		t.Fatalf("expected inherited service metadata removals to apply, got %s", service)
+	}
+}
+
 func TestValidateEndpointRejectsInvalidServiceLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceLabels":{"Example.com/topic":"ok","example.com/ring":"bad!"}}]}]}`))

@@ -81,13 +81,21 @@ type Topic struct {
 	ImagePullPolicy              string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
 	ServiceType                  string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations           map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	RemoveServiceAnnotations     []string             `json:"removeServiceAnnotations,omitempty" yaml:"removeServiceAnnotations,omitempty"`
 	ServiceLabels                map[string]string    `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
+	RemoveServiceLabels          []string             `json:"removeServiceLabels,omitempty" yaml:"removeServiceLabels,omitempty"`
 	ConfigMapAnnotations         map[string]string    `json:"configMapAnnotations,omitempty" yaml:"configMapAnnotations,omitempty"`
+	RemoveConfigMapAnnotations   []string             `json:"removeConfigMapAnnotations,omitempty" yaml:"removeConfigMapAnnotations,omitempty"`
 	ConfigMapLabels              map[string]string    `json:"configMapLabels,omitempty" yaml:"configMapLabels,omitempty"`
+	RemoveConfigMapLabels        []string             `json:"removeConfigMapLabels,omitempty" yaml:"removeConfigMapLabels,omitempty"`
 	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
+	RemoveDeploymentAnnotations  []string             `json:"removeDeploymentAnnotations,omitempty" yaml:"removeDeploymentAnnotations,omitempty"`
 	DeploymentLabels             map[string]string    `json:"deploymentLabels,omitempty" yaml:"deploymentLabels,omitempty"`
+	RemoveDeploymentLabels       []string             `json:"removeDeploymentLabels,omitempty" yaml:"removeDeploymentLabels,omitempty"`
 	PodAnnotations               map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
+	RemovePodAnnotations         []string             `json:"removePodAnnotations,omitempty" yaml:"removePodAnnotations,omitempty"`
 	PodLabels                    map[string]string    `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
+	RemovePodLabels              []string             `json:"removePodLabels,omitempty" yaml:"removePodLabels,omitempty"`
 	ServiceAccountName           string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
 	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
 	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
@@ -306,6 +314,7 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeServiceAnnotations", tenantName, topicName), topic.RemoveServiceAnnotations)...)
 			for labelKey, labelValue := range topic.ServiceLabels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
@@ -314,11 +323,13 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeServiceLabels", tenantName, topicName), topic.RemoveServiceLabels)...)
 			for annotationKey := range topic.ConfigMapAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q configMapAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeConfigMapAnnotations", tenantName, topicName), topic.RemoveConfigMapAnnotations)...)
 			for labelKey, labelValue := range topic.ConfigMapLabels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q configMapLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
@@ -327,11 +338,13 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q configMapLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeConfigMapLabels", tenantName, topicName), topic.RemoveConfigMapLabels)...)
 			for annotationKey := range topic.DeploymentAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q deploymentAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeDeploymentAnnotations", tenantName, topicName), topic.RemoveDeploymentAnnotations)...)
 			for labelKey, labelValue := range topic.DeploymentLabels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q deploymentLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
@@ -340,11 +353,13 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q deploymentLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeDeploymentLabels", tenantName, topicName), topic.RemoveDeploymentLabels)...)
 			for annotationKey := range topic.PodAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q podAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removePodAnnotations", tenantName, topicName), topic.RemovePodAnnotations)...)
 			for labelKey, labelValue := range topic.PodLabels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q podLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
@@ -353,6 +368,7 @@ func Validate(spec Specification) []string {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q podLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removePodLabels", tenantName, topicName), topic.RemovePodLabels)...)
 			if err := validateExternalTrafficPolicy(topic.ExternalTrafficPolicy); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q externalTrafficPolicy is invalid: %v", tenantName, topicName, err))
 			}
@@ -653,6 +669,17 @@ func validateKubernetesQuantity(value string) error {
 		return err
 	}
 	return nil
+}
+
+func validateRemovalKeys(path string, keys []string) []string {
+	var issues []string
+	for _, key := range keys {
+		trimmed := strings.TrimSpace(key)
+		if err := validateKubernetesLabelKey(trimmed); err != nil {
+			issues = append(issues, fmt.Sprintf("%s entry %q is invalid: %v", path, key, err))
+		}
+	}
+	return issues
 }
 
 func validateOPAResourceBudgetAtPath(path string, resources ResourceRequirements) []string {

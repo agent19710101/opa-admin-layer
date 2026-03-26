@@ -60,21 +60,21 @@ func BuildPlan(spec Specification) (Plan, error) {
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
-			effectiveConfigMapAnnotations := mergeStringMap(normalized.ControlPlane.ConfigMapAnnotations, topic.ConfigMapAnnotations)
-			effectiveConfigMapLabels := mergeStringMap(normalized.ControlPlane.ConfigMapLabels, topic.ConfigMapLabels)
+			effectiveConfigMapAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.ConfigMapAnnotations, topic.ConfigMapAnnotations, topic.RemoveConfigMapAnnotations)
+			effectiveConfigMapLabels := mergeStringMapWithRemovals(normalized.ControlPlane.ConfigMapLabels, topic.ConfigMapLabels, topic.RemoveConfigMapLabels)
 			renderedConfigMapLabels := mergeProtectedStringMap(renderedLabels, effectiveConfigMapLabels, builtInLabels)
 			effectiveServiceType := normalized.ControlPlane.ServiceType
 			if topic.ServiceType != "" {
 				effectiveServiceType = topic.ServiceType
 			}
-			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
-			effectiveServiceLabels := mergeStringMap(normalized.ControlPlane.ServiceLabels, topic.ServiceLabels)
+			effectiveServiceAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations, topic.RemoveServiceAnnotations)
+			effectiveServiceLabels := mergeStringMapWithRemovals(normalized.ControlPlane.ServiceLabels, topic.ServiceLabels, topic.RemoveServiceLabels)
 			renderedServiceLabels := mergeProtectedStringMap(renderedLabels, effectiveServiceLabels, builtInLabels)
-			effectiveDeploymentAnnotations := mergeStringMap(normalized.ControlPlane.DeploymentAnnotations, topic.DeploymentAnnotations)
-			effectiveDeploymentLabels := mergeStringMap(normalized.ControlPlane.DeploymentLabels, topic.DeploymentLabels)
+			effectiveDeploymentAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.DeploymentAnnotations, topic.DeploymentAnnotations, topic.RemoveDeploymentAnnotations)
+			effectiveDeploymentLabels := mergeStringMapWithRemovals(normalized.ControlPlane.DeploymentLabels, topic.DeploymentLabels, topic.RemoveDeploymentLabels)
 			renderedDeploymentLabels := mergeProtectedStringMap(renderedLabels, effectiveDeploymentLabels, builtInLabels)
-			effectivePodAnnotations := mergeStringMap(normalized.ControlPlane.PodAnnotations, topic.PodAnnotations)
-			effectivePodLabels := mergeStringMap(normalized.ControlPlane.PodLabels, topic.PodLabels)
+			effectivePodAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.PodAnnotations, topic.PodAnnotations, topic.RemovePodAnnotations)
+			effectivePodLabels := mergeStringMapWithRemovals(normalized.ControlPlane.PodLabels, topic.PodLabels, topic.RemovePodLabels)
 			renderedPodLabels := mergeProtectedStringMap(renderedLabels, effectivePodLabels, builtInLabels)
 			effectiveServiceAccountName := normalized.ControlPlane.ServiceAccountName
 			if topic.ServiceAccountName != "" {
@@ -269,6 +269,20 @@ func mergeTopicLabels(builtIn, topicLabels map[string]string) map[string]string 
 			continue
 		}
 		merged[key] = value
+	}
+	return merged
+}
+
+func mergeStringMapWithRemovals(base, override map[string]string, removals []string) map[string]string {
+	merged := mergeStringMap(base, override)
+	if len(merged) == 0 && len(removals) == 0 {
+		return nil
+	}
+	for _, key := range removals {
+		delete(merged, strings.TrimSpace(key))
+	}
+	if len(merged) == 0 {
+		return nil
 	}
 	return merged
 }

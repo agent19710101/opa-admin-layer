@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add topic-level inherited metadata removal lists so shared Service, ConfigMap, Deployment, and pod annotation/label keys can be cleared back to absent state without downstream patching
 - add shared/topic `serviceLabels` support for rendering Service-only metadata labels with validation and immutable built-in identity keys
 
 - add shared/topic `configMapAnnotations` support for rendered ConfigMap metadata with inherited annotation merging and Kubernetes annotation-key validation

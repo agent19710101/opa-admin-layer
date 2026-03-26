@@ -38,8 +38,12 @@ tenants:
         automountServiceAccountToken: true
         serviceLabels:
           example.com/service-scope: topic
+        removeServiceAnnotations:
+          - example.com/internal
         configMapAnnotations:
           example.com/source: topic
+        removeConfigMapLabels:
+          - example.com/config-scope
         configMapLabels:
           example.com/config-scope: topic
         podLabels:
@@ -104,8 +108,14 @@ tenants:
 	if got := spec.Tenants[0].Topics[0].ServiceLabels["example.com/service-scope"]; got != "topic" {
 		t.Fatalf("expected topic serviceLabels to decode, got %q", got)
 	}
+	if got := spec.Tenants[0].Topics[0].RemoveServiceAnnotations; !reflect.DeepEqual(got, []string{"example.com/internal"}) {
+		t.Fatalf("expected topic removeServiceAnnotations to decode, got %#v", got)
+	}
 	if got := spec.Tenants[0].Topics[0].ConfigMapAnnotations["example.com/source"]; got != "topic" {
 		t.Fatalf("expected topic configMapAnnotations to decode, got %q", got)
+	}
+	if got := spec.Tenants[0].Topics[0].RemoveConfigMapLabels; !reflect.DeepEqual(got, []string{"example.com/config-scope"}) {
+		t.Fatalf("expected topic removeConfigMapLabels to decode, got %#v", got)
 	}
 	if got := spec.Tenants[0].Topics[0].ConfigMapLabels["example.com/config-scope"]; got != "topic" {
 		t.Fatalf("expected topic configMapLabels to decode, got %q", got)

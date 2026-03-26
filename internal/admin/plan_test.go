@@ -1335,6 +1335,125 @@ func TestValidateRejectsInvalidConfigMapLabels(t *testing.T) {
 	}
 }
 
+func TestBuildPlanAllowsTopicsToRemoveInheritedMetadata(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceAnnotations: map[string]string{
+				"example.com/shared-service": "true",
+			},
+			ServiceLabels: map[string]string{
+				"example.com/remove-service": "true",
+			},
+			ConfigMapAnnotations: map[string]string{
+				"example.com/remove-config-annotation": "true",
+			},
+			ConfigMapLabels: map[string]string{
+				"example.com/remove-config-label": "true",
+			},
+			DeploymentAnnotations: map[string]string{
+				"example.com/remove-deployment-annotation": "true",
+			},
+			DeploymentLabels: map[string]string{
+				"example.com/remove-deployment-label": "true",
+			},
+			PodAnnotations: map[string]string{
+				"example.com/remove-pod-annotation": "true",
+			},
+			PodLabels: map[string]string{
+				"example.com/remove-pod-label": "true",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:                     "billing",
+				RemoveServiceAnnotations: []string{"example.com/shared-service"},
+				RemoveServiceLabels:      []string{"example.com/remove-service"},
+				RemoveConfigMapAnnotations: []string{
+					"example.com/remove-config-annotation",
+				},
+				RemoveConfigMapLabels: []string{"example.com/remove-config-label"},
+				RemoveDeploymentAnnotations: []string{
+					"example.com/remove-deployment-annotation",
+				},
+				RemoveDeploymentLabels: []string{"example.com/remove-deployment-label"},
+				RemovePodAnnotations:   []string{"example.com/remove-pod-annotation"},
+				RemovePodLabels:        []string{"example.com/remove-pod-label"},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	topicPlan := plan.Tenants[0].Topics[0]
+	for _, check := range []struct {
+		name     string
+		manifest string
+		removed  string
+	}{
+		{name: "service annotation", manifest: topicPlan.ServiceManifestYAML, removed: `example.com/shared-service`},
+		{name: "service label", manifest: topicPlan.ServiceManifestYAML, removed: `example.com/remove-service`},
+		{name: "config map annotation", manifest: topicPlan.ConfigMapManifestYAML, removed: `example.com/remove-config-annotation`},
+		{name: "config map label", manifest: topicPlan.ConfigMapManifestYAML, removed: `example.com/remove-config-label`},
+		{name: "deployment annotation", manifest: topicPlan.DeploymentManifestYAML, removed: `example.com/remove-deployment-annotation`},
+		{name: "deployment label", manifest: topicPlan.DeploymentManifestYAML, removed: `example.com/remove-deployment-label`},
+		{name: "pod annotation", manifest: topicPlan.DeploymentManifestYAML, removed: `example.com/remove-pod-annotation`},
+		{name: "pod label", manifest: topicPlan.DeploymentManifestYAML, removed: `example.com/remove-pod-label`},
+	} {
+		if strings.Contains(check.manifest, check.removed) {
+			t.Fatalf("expected %s to be removed, got %s", check.name, check.manifest)
+		}
+	}
+	if !strings.Contains(topicPlan.ServiceManifestYAML, `app.kubernetes.io/name: "demo-tenant-a-billing-opa"`) {
+		t.Fatalf("expected built-in service labels to remain present, got %s", topicPlan.ServiceManifestYAML)
+	}
+}
+
+func TestValidateRejectsInvalidInheritedMetadataRemovalKeys(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:                       "billing",
+				RemoveServiceAnnotations:   []string{"Example.com/service"},
+				RemoveServiceLabels:        []string{"bad/key/format"},
+				RemoveConfigMapAnnotations: []string{""},
+				RemoveConfigMapLabels:      []string{"Example.com/config"},
+				RemoveDeploymentAnnotations: []string{
+					"Example.com/deployment",
+				},
+				RemoveDeploymentLabels: []string{"Example.com/deployment-label"},
+				RemovePodAnnotations:   []string{"Example.com/pod"},
+				RemovePodLabels:        []string{"Example.com/pod-label"},
+			}},
+		}},
+	}
+
+	issues := strings.Join(Validate(spec), "\n")
+	for _, expected := range []string{
+		`removeServiceAnnotations entry "Example.com/service" is invalid`,
+		`removeServiceLabels entry "bad/key/format" is invalid`,
+		`removeConfigMapAnnotations entry "" is invalid`,
+		`removeConfigMapLabels entry "Example.com/config" is invalid`,
+		`removeDeploymentAnnotations entry "Example.com/deployment" is invalid`,
+		`removeDeploymentLabels entry "Example.com/deployment-label" is invalid`,
+		`removePodAnnotations entry "Example.com/pod" is invalid`,
+		`removePodLabels entry "Example.com/pod-label" is invalid`,
+	} {
+		if !strings.Contains(issues, expected) {
+			t.Fatalf("expected invalid removal issue %q, got %s", expected, issues)
+		}
+	}
+}
+
 func TestValidateRejectsInvalidConfigMapDeploymentAndPodAnnotationKeys(t *testing.T) {
 	spec := Specification{
 		Name: "demo",

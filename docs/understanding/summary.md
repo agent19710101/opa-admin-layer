@@ -47,3 +47,4 @@ Ship the workflow system first, then use it to ship the smallest useful vertical
 - Deployment scaling is now part of the spec contract through shared `controlPlane.replicas` defaults and topic-level `replicas` overrides.
 
 - Service metadata now supports shared/topic `serviceLabels` so Service-only ownership, GitOps, or discovery labels can be rendered without mutating Deployments, ConfigMaps, or pod templates.
+- Topics can now explicitly remove inherited Service, ConfigMap, Deployment, and pod annotation/label keys through narrow `remove*Annotations` and `remove*Labels` lists, so one workload can drop a shared metadata default back to absent state without downstream patches.

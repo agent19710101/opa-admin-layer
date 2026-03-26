@@ -41,6 +41,7 @@
 29. Operators should be able to declare shared and topic-level `automountServiceAccountToken` values for rendered OPA Deployments so service-account token projection can be explicitly enabled or disabled without downstream patches.
 30. Operators should be able to declare shared and topic-level `imagePullPolicy` values for rendered OPA Deployments, limited to Kubernetes `Always`, `IfNotPresent`, and `Never`, so pull behavior can be controlled without downstream patches.
 31. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
+32. Topics should be able to remove inherited Service, ConfigMap, Deployment, and pod annotation/label keys through explicit removal lists so shared metadata defaults can be cleared back to absent state without downstream patching.
 
 ## Operational requirements
 

@@ -59,6 +59,8 @@ tenants:
         serviceLabels:
           example.com/service-scope: billing
           example.com/ring: canary
+        removeServiceLabels:
+          - example.com/team
         configMapAnnotations:
           example.com/source: billing
           example.com/team: payments
