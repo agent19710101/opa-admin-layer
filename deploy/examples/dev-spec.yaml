@@ -11,6 +11,9 @@ controlPlane:
   sessionAffinity: ClientIP
   serviceAnnotations:
     example.com/health-check-path: /health?plugins
+  deploymentAnnotations:
+    example.com/owner: platform
+    example.com/revision-window: shared
   podAnnotations:
     sidecar.istio.io/inject: "false"
     example.com/trace-sampling: shared
@@ -34,6 +37,9 @@ tenants:
         serviceAnnotations:
           example.com/exposure: public
           example.com/health-check-path: /billing-health
+        deploymentAnnotations:
+          example.com/revision-window: billing
+          example.com/rollout: canary
         podAnnotations:
           example.com/trace-sampling: billing
           example.com/debug: enabled

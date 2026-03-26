@@ -363,12 +363,16 @@ func TestRunValidateRejectsExternalTrafficPolicyWithoutExternallyExposedService(
 	}
 }
 
-func TestRunRenderWritesTopicPodAnnotations(t *testing.T) {
+func TestRunRenderWritesTopicDeploymentAndPodAnnotations(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{
   "name": "demo",
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
+    "deploymentAnnotations": {
+      "example.com/owner": "platform",
+      "example.com/revision-window": "shared"
+    },
     "podAnnotations": {
       "sidecar.istio.io/inject": "false",
       "example.com/trace-sampling": "shared"
@@ -380,6 +384,10 @@ func TestRunRenderWritesTopicPodAnnotations(t *testing.T) {
       "topics": [
         {
           "name": "billing",
+          "deploymentAnnotations": {
+            "example.com/revision-window": "billing",
+            "example.com/rollout": "canary"
+          },
           "podAnnotations": {
             "example.com/trace-sampling": "billing",
             "example.com/debug": "enabled"
@@ -404,7 +412,9 @@ func TestRunRenderWritesTopicPodAnnotations(t *testing.T) {
 	}
 	deployment := string(deploymentBytes)
 	for _, expected := range []string{
-		"annotations:",
+		`example.com/owner: "platform"`,
+		`example.com/revision-window: "billing"`,
+		`example.com/rollout: "canary"`,
 		`sidecar.istio.io/inject: "false"`,
 		`example.com/trace-sampling: "billing"`,
 		`example.com/debug: "enabled"`,
@@ -412,6 +422,9 @@ func TestRunRenderWritesTopicPodAnnotations(t *testing.T) {
 		if !strings.Contains(deployment, expected) {
 			t.Fatalf("expected rendered deployment to contain %q, got %s", expected, deployment)
 		}
+	}
+	if strings.Contains(deployment, `example.com/revision-window: "shared"`) {
+		t.Fatalf("expected topic deployment annotation override to replace shared value, got %s", deployment)
 	}
 	if strings.Contains(deployment, `example.com/trace-sampling: "shared"`) {
 		t.Fatalf("expected topic pod annotation override to replace shared value, got %s", deployment)

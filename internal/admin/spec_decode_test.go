@@ -14,6 +14,8 @@ controlPlane:
   namespace: policy-system
   serviceAnnotations:
     example.com/internal: "true"
+  deploymentAnnotations:
+    example.com/owner: platform
   podAnnotations:
     sidecar.istio.io/inject: "false"
 tenants:
@@ -37,6 +39,9 @@ tenants:
 	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)
+	}
+	if got := spec.ControlPlane.DeploymentAnnotations["example.com/owner"]; got != "platform" {
+		t.Fatalf("expected deployment annotation to decode, got %q", got)
 	}
 	if got := spec.ControlPlane.PodAnnotations["sidecar.istio.io/inject"]; got != "false" {
 		t.Fatalf("expected pod annotation to decode, got %q", got)

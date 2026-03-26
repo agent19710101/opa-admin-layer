@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared/topic `deploymentAnnotations` support for rendered Deployment metadata with inherited annotation merging
 - add shared/topic `podAnnotations` support for rendered OPA pod templates with inherited annotation merging
 - add shared `controlPlane.namespace` support with Kubernetes namespace validation and namespace rendering in generated ConfigMap, Deployment, and Service manifests
 - validate REST request `Content-Type` for `/v1/validate` and `/v1/plans`, accepting JSON/YAML media types and returning `415 Unsupported Media Type` for unsupported payload types

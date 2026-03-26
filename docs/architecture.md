@@ -80,6 +80,8 @@ Architecture update (2026-03-26, shared Kubernetes namespace): rendered workload
 
 Architecture update (2026-03-26, pod template annotations): rendered Deployments now treat pod-template annotations as inherited workload metadata alongside Service annotations and OPA resources. The control plane can set shared `podAnnotations`, topics can override or extend them key-by-key, and validation keeps the slice narrow by checking annotation keys with the existing Kubernetes metadata-key contract while leaving deployment-level annotations out of scope for now.
 
+Architecture update (2026-03-26, deployment annotations): rendered Deployments now also treat top-level Deployment annotations as inherited workload metadata. The control plane can set shared `deploymentAnnotations`, topics can override or extend them key-by-key, and rendering keeps the surface intentionally narrow by writing only `Deployment.metadata.annotations` instead of opening arbitrary Deployment customization.
+
 Architecture update (2026-03-23, checked-in YAML example): the repository now carries a first-class YAML example spec alongside the JSON example. That keeps the supported operator input path visible and testable in-tree instead of leaving YAML as an implementation detail only covered by unit tests and README snippets.
 
 Architecture update (2026-03-23, control-plane URL validation): `controlPlane.baseServiceURL` is now treated as a first-class endpoint contract rather than a non-empty string. Validation requires an absolute HTTP(S) URL with a host and no fragment so bundle URL composition and rendered OPA config cannot be built from malformed control-plane input.

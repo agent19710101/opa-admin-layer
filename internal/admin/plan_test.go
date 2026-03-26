@@ -884,11 +884,15 @@ func TestValidateRejectsTopicOPAResourcesWhenMergedRequestsExceedInheritedLimits
 	}
 }
 
-func TestBuildPlanMergesTopicPodAnnotationsOverSharedDefaults(t *testing.T) {
+func TestBuildPlanMergesTopicDeploymentAndPodAnnotationsOverSharedDefaults(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL: "https://control.example.com",
+			DeploymentAnnotations: map[string]string{
+				"example.com/owner":           "platform",
+				"example.com/revision-window": "shared",
+			},
 			PodAnnotations: map[string]string{
 				"sidecar.istio.io/inject":    "false",
 				"example.com/trace-sampling": "shared",
@@ -898,6 +902,10 @@ func TestBuildPlanMergesTopicPodAnnotationsOverSharedDefaults(t *testing.T) {
 			Name: "tenant-a",
 			Topics: []Topic{{
 				Name: "billing",
+				DeploymentAnnotations: map[string]string{
+					"example.com/revision-window": "billing",
+					"example.com/rollout":         "canary",
+				},
 				PodAnnotations: map[string]string{
 					"example.com/trace-sampling": "billing",
 					"example.com/debug":          "enabled",
@@ -912,7 +920,9 @@ func TestBuildPlanMergesTopicPodAnnotationsOverSharedDefaults(t *testing.T) {
 	}
 	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
 	for _, expected := range []string{
-		"annotations:",
+		`example.com/owner: "platform"`,
+		`example.com/revision-window: "billing"`,
+		`example.com/rollout: "canary"`,
 		`sidecar.istio.io/inject: "false"`,
 		`example.com/trace-sampling: "billing"`,
 		`example.com/debug: "enabled"`,
@@ -921,16 +931,22 @@ func TestBuildPlanMergesTopicPodAnnotationsOverSharedDefaults(t *testing.T) {
 			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, deployment)
 		}
 	}
+	if strings.Contains(deployment, `example.com/revision-window: "shared"`) {
+		t.Fatalf("expected topic deployment annotation override to replace shared value, got %q", deployment)
+	}
 	if strings.Contains(deployment, `example.com/trace-sampling: "shared"`) {
 		t.Fatalf("expected topic pod annotation override to replace shared value, got %q", deployment)
 	}
 }
 
-func TestValidateRejectsInvalidPodAnnotationKeys(t *testing.T) {
+func TestValidateRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL: "https://control.example.com",
+			DeploymentAnnotations: map[string]string{
+				"Example.com/deployment": "true",
+			},
 			PodAnnotations: map[string]string{
 				"Example.com/shared": "true",
 			},
@@ -939,6 +955,9 @@ func TestValidateRejectsInvalidPodAnnotationKeys(t *testing.T) {
 			Name: "tenant-a",
 			Topics: []Topic{{
 				Name: "billing",
+				DeploymentAnnotations: map[string]string{
+					"Example.com/topic-deployment": "true",
+				},
 				PodAnnotations: map[string]string{
 					"Example.com/topic": "true",
 				},
@@ -948,10 +967,14 @@ func TestValidateRejectsInvalidPodAnnotationKeys(t *testing.T) {
 
 	issues := Validate(spec)
 	joined := strings.Join(issues, "\n")
-	if !strings.Contains(joined, `controlPlane.podAnnotations key "Example.com/shared" is invalid`) {
-		t.Fatalf("expected invalid shared pod annotation key issue, got %#v", issues)
-	}
-	if !strings.Contains(joined, `tenant "tenant-a" topic "billing" podAnnotations key "Example.com/topic" is invalid`) {
-		t.Fatalf("expected invalid topic pod annotation key issue, got %#v", issues)
+	for _, expected := range []string{
+		`controlPlane.deploymentAnnotations key "Example.com/deployment" is invalid`,
+		`controlPlane.podAnnotations key "Example.com/shared" is invalid`,
+		`tenant "tenant-a" topic "billing" deploymentAnnotations key "Example.com/topic-deployment" is invalid`,
+		`tenant "tenant-a" topic "billing" podAnnotations key "Example.com/topic" is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid annotation key issue %q, got %#v", expected, issues)
+		}
 	}
 }

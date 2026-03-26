@@ -381,9 +381,9 @@ func TestValidateEndpointRejectsExternalTrafficPolicyWithoutExternallyExposedSer
 	}
 }
 
-func TestValidateEndpointRejectsInvalidPodAnnotationKeys(t *testing.T) {
+func TestValidateEndpointRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","podAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","podAnnotations":{"Example.com/topic":"true"}}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","deploymentAnnotations":{"Example.com/deployment":"true"},"podAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","deploymentAnnotations":{"Example.com/topic-deployment":"true"},"podAnnotations":{"Example.com/topic":"true"}}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -392,11 +392,13 @@ func TestValidateEndpointRejectsInvalidPodAnnotationKeys(t *testing.T) {
 		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	for _, expected := range [][]byte{
+		[]byte(`controlPlane.deploymentAnnotations key`),
 		[]byte(`controlPlane.podAnnotations key`),
+		[]byte(`deploymentAnnotations key \"Example.com/topic-deployment\" is invalid`),
 		[]byte(`podAnnotations key \"Example.com/topic\" is invalid`),
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
-			t.Fatalf("expected invalid pod annotation error %q, got %s", expected, rec.Body.String())
+			t.Fatalf("expected invalid annotation error %q, got %s", expected, rec.Body.String())
 		}
 	}
 }

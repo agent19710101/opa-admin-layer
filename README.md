@@ -121,6 +121,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared rendered Kubernetes namespace via `controlPlane.namespace` so generated ConfigMap, Deployment, and Service manifests can land outside the default namespace without downstream patching
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
+- optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
 - optional shared `controlPlane.internalTrafficPolicy` plus topic-level overrides so generated Services can steer in-cluster node-local routing (`Cluster` or `Local`) without downstream patching
@@ -155,6 +156,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
       "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
       "example.com/health-check-path": "/health?plugins"
     },
+    "deploymentAnnotations": {
+      "example.com/owner": "platform",
+      "example.com/revision-window": "shared"
+    },
     "podAnnotations": {
       "sidecar.istio.io/inject": "false",
       "example.com/trace-sampling": "shared"
@@ -182,6 +187,10 @@ Example shared namespace, Service metadata, inherited/overridden external and in
           "serviceAnnotations": {
             "example.com/health-check-path": "/billing-health",
             "example.com/exposure": "public"
+          },
+          "deploymentAnnotations": {
+            "example.com/revision-window": "billing",
+            "example.com/rollout": "canary"
           },
           "podAnnotations": {
             "example.com/trace-sampling": "billing",
