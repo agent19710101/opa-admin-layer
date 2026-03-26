@@ -60,7 +60,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
-			effectiveConfigMapAnnotations := normalized.ControlPlane.ConfigMapAnnotations
+			effectiveConfigMapAnnotations := mergeStringMap(normalized.ControlPlane.ConfigMapAnnotations, topic.ConfigMapAnnotations)
 			effectiveServiceType := normalized.ControlPlane.ServiceType
 			if topic.ServiceType != "" {
 				effectiveServiceType = topic.ServiceType

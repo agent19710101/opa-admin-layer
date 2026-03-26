@@ -121,7 +121,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared rendered Kubernetes namespace via `controlPlane.namespace` so generated ConfigMap, Deployment, and Service manifests can land outside the default namespace without downstream patching
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
-- optional shared `controlPlane.configMapAnnotations` so rendered ConfigMaps can carry reloader, ownership, or GitOps metadata without downstream patching
+- optional shared `controlPlane.configMapAnnotations` plus topic-level `configMapAnnotations` overrides so rendered ConfigMaps can carry reloader, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.deploymentLabels` plus topic-level overrides so rendered Deployment metadata can carry rollout tracking, ownership, or GitOps labels without mutating Services, ConfigMaps, or pod templates
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
@@ -148,7 +148,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared namespace, Service metadata, shared ConfigMap annotations, inherited/overridden service-account token automount, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inherited/overridden service-account token automount, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
@@ -208,6 +208,10 @@ Example shared namespace, Service metadata, shared ConfigMap annotations, inheri
           "serviceAnnotations": {
             "example.com/health-check-path": "/billing-health",
             "example.com/exposure": "public"
+          },
+          "configMapAnnotations": {
+            "example.com/source": "billing",
+            "example.com/team": "payments"
           },
           "deploymentAnnotations": {
             "example.com/revision-window": "billing",

@@ -32,6 +32,8 @@ tenants:
         replicas: 5
         serviceAccountName: billing-opa
         automountServiceAccountToken: true
+        configMapAnnotations:
+          example.com/source: topic
         podLabels:
           example.com/workload-class: topic
 `)
@@ -84,6 +86,9 @@ tenants:
 	}
 	if spec.Tenants[0].Topics[0].AutomountServiceAccountToken == nil || !*spec.Tenants[0].Topics[0].AutomountServiceAccountToken {
 		t.Fatalf("expected topic automountServiceAccountToken=true to decode, got %#v", spec.Tenants[0].Topics[0].AutomountServiceAccountToken)
+	}
+	if got := spec.Tenants[0].Topics[0].ConfigMapAnnotations["example.com/source"]; got != "topic" {
+		t.Fatalf("expected topic configMapAnnotations to decode, got %q", got)
 	}
 	if got := spec.Tenants[0].Topics[0].PodLabels["example.com/workload-class"]; got != "topic" {
 		t.Fatalf("expected topic pod label to decode, got %q", got)

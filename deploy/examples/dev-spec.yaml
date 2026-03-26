@@ -49,6 +49,9 @@ tenants:
         serviceAnnotations:
           example.com/exposure: public
           example.com/health-check-path: /billing-health
+        configMapAnnotations:
+          example.com/source: billing
+          example.com/team: payments
         deploymentAnnotations:
           example.com/revision-window: billing
           example.com/rollout: canary

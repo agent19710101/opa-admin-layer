@@ -1061,6 +1061,47 @@ func TestBuildPlanRendersSharedConfigMapAnnotations(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicConfigMapAnnotationsOverSharedDefaults(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ConfigMapAnnotations: map[string]string{
+				"reloader.stakater.com/match": "true",
+				"example.com/source":          "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				ConfigMapAnnotations: map[string]string{
+					"example.com/source": "billing",
+					"example.com/team":   "payments",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	for _, expected := range []string{
+		`reloader.stakater.com/match: "true"`,
+		`example.com/source: "billing"`,
+		`example.com/team: "payments"`,
+	} {
+		if !strings.Contains(configMap, expected) {
+			t.Fatalf("expected config map manifest to contain %q, got %q", expected, configMap)
+		}
+	}
+	if strings.Contains(configMap, `example.com/source: "shared"`) {
+		t.Fatalf("expected topic config map annotation override to replace shared value, got %q", configMap)
+	}
+}
+
 func TestBuildPlanMergesTopicDeploymentAndPodAnnotationsOverSharedDefaults(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
@@ -1135,6 +1176,9 @@ func TestValidateRejectsInvalidConfigMapDeploymentAndPodAnnotationKeys(t *testin
 			Name: "tenant-a",
 			Topics: []Topic{{
 				Name: "billing",
+				ConfigMapAnnotations: map[string]string{
+					"Example.com/topic-config": "true",
+				},
 				DeploymentAnnotations: map[string]string{
 					"Example.com/topic-deployment": "true",
 				},
@@ -1151,6 +1195,7 @@ func TestValidateRejectsInvalidConfigMapDeploymentAndPodAnnotationKeys(t *testin
 		`controlPlane.configMapAnnotations key "Example.com/config" is invalid`,
 		`controlPlane.deploymentAnnotations key "Example.com/deployment" is invalid`,
 		`controlPlane.podAnnotations key "Example.com/shared" is invalid`,
+		`tenant "tenant-a" topic "billing" configMapAnnotations key "Example.com/topic-config" is invalid`,
 		`tenant "tenant-a" topic "billing" deploymentAnnotations key "Example.com/topic-deployment" is invalid`,
 		`tenant "tenant-a" topic "billing" podAnnotations key "Example.com/topic" is invalid`,
 	} {
