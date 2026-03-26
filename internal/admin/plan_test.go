@@ -433,6 +433,95 @@ func TestBuildPlanUsesConfiguredServiceMetadata(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicServiceLabelsOverSharedDefaultsWithoutMutatingOtherObjects(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceLabels: map[string]string{
+				"example.com/service-scope": "shared",
+				"example.com/team":          "platform",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"example.com/team": "topic-metadata",
+				},
+				ServiceLabels: map[string]string{
+					"example.com/service-scope": "billing",
+					"example.com/ring":          "canary",
+					"app.kubernetes.io/name":    "do-not-override",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	for _, expected := range []string{
+		`example.com/service-scope: "billing"`,
+		`example.com/ring: "canary"`,
+		`example.com/team: "platform"`,
+		`app.kubernetes.io/name: "demo-tenant-a-billing-opa"`,
+	} {
+		if !strings.Contains(service, expected) {
+			t.Fatalf("expected service manifest to contain %q, got %q", expected, service)
+		}
+	}
+	if strings.Contains(service, `app.kubernetes.io/name: "do-not-override"`) {
+		t.Fatalf("expected built-in service label to remain immutable, got %q", service)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	for _, manifest := range []string{deployment, configMap} {
+		if strings.Contains(manifest, `example.com/service-scope`) || strings.Contains(manifest, `example.com/ring`) {
+			t.Fatalf("expected service labels to stay service-scoped, got %q", manifest)
+		}
+	}
+}
+
+func TestValidateRejectsInvalidServiceLabels(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceLabels: map[string]string{
+				"Example.com/shared": "ok",
+				"example.com/value":  "bad!",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				ServiceLabels: map[string]string{
+					"Example.com/topic": "ok",
+					"example.com/ring":  "bad!",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.serviceLabels key "Example.com/shared" is invalid`,
+		`controlPlane.serviceLabels label "example.com/value" has invalid value "bad!"`,
+		`tenant "tenant-a" topic "billing" serviceLabels key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" serviceLabels label "example.com/ring" has invalid value "bad!"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid service label issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
 func TestBuildPlanMergesTopicServiceOverridesOverSharedDefaults(t *testing.T) {
 	spec := Specification{
 		Name: "demo",

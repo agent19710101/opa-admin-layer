@@ -68,6 +68,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 				effectiveServiceType = topic.ServiceType
 			}
 			effectiveServiceAnnotations := mergeStringMap(normalized.ControlPlane.ServiceAnnotations, topic.ServiceAnnotations)
+			effectiveServiceLabels := mergeStringMap(normalized.ControlPlane.ServiceLabels, topic.ServiceLabels)
+			renderedServiceLabels := mergeProtectedStringMap(renderedLabels, effectiveServiceLabels, builtInLabels)
 			effectiveDeploymentAnnotations := mergeStringMap(normalized.ControlPlane.DeploymentAnnotations, topic.DeploymentAnnotations)
 			effectiveDeploymentLabels := mergeStringMap(normalized.ControlPlane.DeploymentLabels, topic.DeploymentLabels)
 			renderedDeploymentLabels := mergeProtectedStringMap(renderedLabels, effectiveDeploymentLabels, builtInLabels)
@@ -108,7 +110,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
+				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)

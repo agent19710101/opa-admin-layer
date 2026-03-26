@@ -102,3 +102,5 @@ Architecture update (2026-03-26, service-account token automount): rendered Depl
 
 
 Architecture update (2026-03-26, ConfigMap labels): generated ConfigMaps now treat object labels as their own inherited metadata layer instead of forcing ConfigMap-specific labels through broad topic-label propagation. The control plane can set shared `configMapLabels`, topics can override them, rendering keeps the built-in identity labels immutable so selectors and cross-object identity stay stable, and the resulting labels land only on `ConfigMap.metadata.labels` rather than Services, Deployments, or pod templates.
+
+Architecture update (2026-03-27, Service labels): generated Services now treat object labels as their own inherited metadata layer instead of forcing Service-specific labels through broad topic-label propagation. The control plane can set shared `serviceLabels`, topics can override them, rendering keeps the built-in identity labels immutable so selectors and cross-object identity stay stable, and the resulting labels land only on `Service.metadata.labels` rather than Deployments, ConfigMaps, or pod templates.

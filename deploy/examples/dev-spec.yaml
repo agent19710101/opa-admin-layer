@@ -12,6 +12,9 @@ controlPlane:
   sessionAffinity: ClientIP
   serviceAnnotations:
     example.com/health-check-path: /health?plugins
+  serviceLabels:
+    example.com/service-scope: shared
+    example.com/team: platform
   configMapAnnotations:
     reloader.stakater.com/match: "true"
   configMapLabels:
@@ -52,6 +55,9 @@ tenants:
         serviceAnnotations:
           example.com/exposure: public
           example.com/health-check-path: /billing-health
+        serviceLabels:
+          example.com/service-scope: billing
+          example.com/ring: canary
         configMapAnnotations:
           example.com/source: billing
           example.com/team: payments

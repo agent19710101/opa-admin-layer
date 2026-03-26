@@ -15,6 +15,8 @@ controlPlane:
   replicas: 3
   serviceAnnotations:
     example.com/internal: "true"
+  serviceLabels:
+    example.com/service-scope: shared
   configMapAnnotations:
     reloader.stakater.com/match: "true"
   configMapLabels:
@@ -34,6 +36,8 @@ tenants:
         replicas: 5
         serviceAccountName: billing-opa
         automountServiceAccountToken: true
+        serviceLabels:
+          example.com/service-scope: topic
         configMapAnnotations:
           example.com/source: topic
         configMapLabels:
@@ -60,6 +64,9 @@ tenants:
 	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)
+	}
+	if got := spec.ControlPlane.ServiceLabels["example.com/service-scope"]; got != "shared" {
+		t.Fatalf("expected service label to decode, got %q", got)
 	}
 	if got := spec.ControlPlane.ConfigMapAnnotations["reloader.stakater.com/match"]; got != "true" {
 		t.Fatalf("expected config map annotation to decode, got %q", got)
@@ -93,6 +100,9 @@ tenants:
 	}
 	if spec.Tenants[0].Topics[0].AutomountServiceAccountToken == nil || !*spec.Tenants[0].Topics[0].AutomountServiceAccountToken {
 		t.Fatalf("expected topic automountServiceAccountToken=true to decode, got %#v", spec.Tenants[0].Topics[0].AutomountServiceAccountToken)
+	}
+	if got := spec.Tenants[0].Topics[0].ServiceLabels["example.com/service-scope"]; got != "topic" {
+		t.Fatalf("expected topic serviceLabels to decode, got %q", got)
 	}
 	if got := spec.Tenants[0].Topics[0].ConfigMapAnnotations["example.com/source"]; got != "topic" {
 		t.Fatalf("expected topic configMapAnnotations to decode, got %q", got)

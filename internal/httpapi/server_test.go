@@ -496,6 +496,59 @@ func TestPlanEndpointRendersMergedTopicConfigMapLabels(t *testing.T) {
 	}
 }
 
+func TestPlanEndpointRendersMergedTopicServiceLabels(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceLabels":{"example.com/service-scope":"shared","example.com/team":"platform"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceLabels":{"example.com/service-scope":"billing","example.com/ring":"canary","app.kubernetes.io/name":"do-not-override"}}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var plan admin.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("expected valid plan response JSON, got %v body=%s", err, rec.Body.String())
+	}
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	for _, expected := range []string{
+		`example.com/service-scope: "billing"`,
+		`example.com/ring: "canary"`,
+		`example.com/team: "platform"`,
+		`app.kubernetes.io/name: "demo-tenant-a-billing-opa"`,
+	} {
+		if !bytes.Contains([]byte(service), []byte(expected)) {
+			t.Fatalf("expected rendered service label %q in service manifest, got %s", expected, service)
+		}
+	}
+	if bytes.Contains([]byte(service), []byte(`app.kubernetes.io/name: "do-not-override"`)) {
+		t.Fatalf("expected built-in service label to remain immutable, got %s", service)
+	}
+}
+
+func TestValidateEndpointRejectsInvalidServiceLabels(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceLabels":{"Example.com/topic":"ok","example.com/ring":"bad!"}}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`controlPlane.serviceLabels key`),
+		[]byte(`controlPlane.serviceLabels label`),
+		[]byte(`serviceLabels key`),
+		[]byte(`serviceLabels label`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid service label error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
 func TestValidateEndpointRejectsInvalidConfigMapLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","configMapLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","configMapLabels":{"Example.com/topic":"ok","example.com/ring":"bad!"}}]}]}`))

@@ -41,6 +41,7 @@ type ControlPlane struct {
 	Replicas                     int                  `json:"replicas" yaml:"replicas"`
 	ServiceType                  string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations           map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	ServiceLabels                map[string]string    `json:"serviceLabels" yaml:"serviceLabels"`
 	ConfigMapAnnotations         map[string]string    `json:"configMapAnnotations" yaml:"configMapAnnotations"`
 	ConfigMapLabels              map[string]string    `json:"configMapLabels" yaml:"configMapLabels"`
 	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations" yaml:"deploymentAnnotations"`
@@ -78,6 +79,7 @@ type Topic struct {
 	Replicas                     int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
 	ServiceType                  string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations           map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	ServiceLabels                map[string]string    `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
 	ConfigMapAnnotations         map[string]string    `json:"configMapAnnotations,omitempty" yaml:"configMapAnnotations,omitempty"`
 	ConfigMapLabels              map[string]string    `json:"configMapLabels,omitempty" yaml:"configMapLabels,omitempty"`
 	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
@@ -180,6 +182,14 @@ func Validate(spec Specification) []string {
 	for annotationKey := range spec.ControlPlane.ServiceAnnotations {
 		if err := validateKubernetesLabelKey(annotationKey); err != nil {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
+		}
+	}
+	for labelKey, labelValue := range spec.ControlPlane.ServiceLabels {
+		if err := validateKubernetesLabelKey(labelKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceLabels key %q is invalid: %v", labelKey, err))
+		}
+		if err := validateKubernetesLabelValue(labelValue); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceLabels label %q has invalid value %q: %v", labelKey, labelValue, err))
 		}
 	}
 	for annotationKey := range spec.ControlPlane.ConfigMapAnnotations {
@@ -286,6 +296,14 @@ func Validate(spec Specification) []string {
 			for annotationKey := range topic.ServiceAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {
 					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
+				}
+			}
+			for labelKey, labelValue := range topic.ServiceLabels {
+				if err := validateKubernetesLabelKey(labelKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
+				}
+				if err := validateKubernetesLabelValue(labelValue); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
 				}
 			}
 			for annotationKey := range topic.ConfigMapAnnotations {

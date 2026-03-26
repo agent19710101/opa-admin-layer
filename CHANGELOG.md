@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- add shared/topic `serviceLabels` support for rendering Service-only metadata labels with validation and immutable built-in identity keys
+
 - add shared/topic `configMapAnnotations` support for rendered ConfigMap metadata with inherited annotation merging and Kubernetes annotation-key validation
 - add shared/topic `configMapLabels` support for rendered ConfigMap metadata with inherited label merging and selector-safe built-in label protection
 - add shared/topic `podLabels` support for rendered Deployment pod templates with selector-safe inherited label merging

@@ -14,6 +14,10 @@
     "serviceAnnotations": {
       "example.com/health-check-path": "/health?plugins"
     },
+    "serviceLabels": {
+      "example.com/service-scope": "shared",
+      "example.com/team": "platform"
+    },
     "configMapAnnotations": {
       "reloader.stakater.com/match": "true"
     },
@@ -67,6 +71,10 @@
           "serviceAnnotations": {
             "example.com/exposure": "public",
             "example.com/health-check-path": "/billing-health"
+          },
+          "serviceLabels": {
+            "example.com/service-scope": "billing",
+            "example.com/ring": "canary"
           },
           "configMapAnnotations": {
             "example.com/source": "billing",

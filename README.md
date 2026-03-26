@@ -121,6 +121,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared rendered Kubernetes namespace via `controlPlane.namespace` so generated ConfigMap, Deployment, and Service manifests can land outside the default namespace without downstream patching
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
+- optional shared `controlPlane.serviceLabels` plus topic-level overrides so rendered Services can carry object-scoped labels without mutating Deployments, ConfigMaps, or pod templates
 - optional shared `controlPlane.configMapAnnotations` plus topic-level `configMapAnnotations` overrides so rendered ConfigMaps can carry reloader, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.configMapLabels` plus topic-level overrides so rendered ConfigMaps can carry object-scoped labels without mutating Services, Deployments, or pod templates
 - optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
