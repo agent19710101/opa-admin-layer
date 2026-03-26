@@ -126,6 +126,39 @@ tenants:
 	}
 }
 
+func TestRunValidateRejectsNegativeReplicas(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "replicas": -1
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing",
+          "replicas": -2
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	err := run([]string{"validate", "-input", specPath})
+	if err == nil {
+		t.Fatal("expected validate to fail for negative replicas")
+	}
+	if !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+}
+
 func TestRunValidateRejectsInvalidDefaultListenAddress(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{
@@ -191,6 +224,58 @@ func TestRunValidateRejectsInvalidOPAResourceQuantities(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "validation failed") {
 		t.Fatalf("expected validation failure, got %v", err)
+	}
+}
+
+func TestRunRenderWritesReplicaOverrides(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "replicas": 3
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        },
+        {
+          "name": "support",
+          "replicas": 5
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	billingDeployment, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))
+	if err != nil {
+		t.Fatalf("read billing deployment: %v", err)
+	}
+	if !strings.Contains(string(billingDeployment), "replicas: 3") {
+		t.Fatalf("expected shared replicas in billing deployment, got %s", string(billingDeployment))
+	}
+
+	supportDeployment, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "support", "deployment.yaml"))
+	if err != nil {
+		t.Fatalf("read support deployment: %v", err)
+	}
+	if !strings.Contains(string(supportDeployment), "replicas: 5") {
+		t.Fatalf("expected topic replica override in support deployment, got %s", string(supportDeployment))
+	}
+	if strings.Contains(string(supportDeployment), "replicas: 3") {
+		t.Fatalf("expected topic replica override to replace shared replicas, got %s", string(supportDeployment))
 	}
 }
 

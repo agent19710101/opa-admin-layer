@@ -12,6 +12,7 @@ func TestDecodeSpecAcceptsYAML(t *testing.T) {
 controlPlane:
   baseServiceURL: https://control.example.com
   namespace: policy-system
+  replicas: 3
   serviceAnnotations:
     example.com/internal: "true"
   deploymentAnnotations:
@@ -22,6 +23,7 @@ tenants:
   - name: tenant-a
     topics:
       - name: billing
+        replicas: 5
 `)
 
 	spec, err := DecodeSpec(payload)
@@ -37,6 +39,9 @@ tenants:
 	if spec.ControlPlane.Namespace != "policy-system" {
 		t.Fatalf("unexpected namespace: %q", spec.ControlPlane.Namespace)
 	}
+	if spec.ControlPlane.Replicas != 3 {
+		t.Fatalf("unexpected replicas: %d", spec.ControlPlane.Replicas)
+	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)
 	}
@@ -48,6 +53,9 @@ tenants:
 	}
 	if len(spec.Tenants) != 1 || len(spec.Tenants[0].Topics) != 1 || spec.Tenants[0].Topics[0].Name != "billing" {
 		t.Fatalf("unexpected tenant/topic decode result: %#v", spec.Tenants)
+	}
+	if spec.Tenants[0].Topics[0].Replicas != 5 {
+		t.Fatalf("expected topic replicas to decode, got %d", spec.Tenants[0].Topics[0].Replicas)
 	}
 }
 

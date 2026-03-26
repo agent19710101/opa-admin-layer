@@ -36,6 +36,31 @@ func TestValidateRejectsInvalidBaseServiceURL(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsNegativeReplicas(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Replicas:       -1,
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing", Replicas: -2}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		"controlPlane.replicas is invalid",
+		`tenant "tenant-a" topic "billing" replicas is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected replica validation issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
 func TestValidateRejectsInvalidNamespace(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
@@ -228,8 +253,41 @@ func TestBuildPlanAppliesDefaults(t *testing.T) {
 			t.Fatalf("expected deployment manifest to contain %q, got %q", expected, plan.Tenants[0].Topics[0].DeploymentManifestYAML)
 		}
 	}
+	if !strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "replicas: 1") {
+		t.Fatalf("expected deployment manifest to default replicas to 1, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
+	}
 	if strings.Contains(plan.Tenants[0].Topics[0].DeploymentManifestYAML, "resources:") {
 		t.Fatalf("expected deployment manifest to omit resources block by default, got %q", plan.Tenants[0].Topics[0].DeploymentManifestYAML)
+	}
+}
+
+func TestBuildPlanUsesConfiguredReplicaOverrides(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Replicas:       3,
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}, {Name: "support", Replicas: 5}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingDeployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if !strings.Contains(billingDeployment, "replicas: 3") {
+		t.Fatalf("expected shared replicas in billing deployment, got %q", billingDeployment)
+	}
+	supportDeployment := plan.Tenants[0].Topics[1].DeploymentManifestYAML
+	if !strings.Contains(supportDeployment, "replicas: 5") {
+		t.Fatalf("expected topic replica override in support deployment, got %q", supportDeployment)
+	}
+	if strings.Contains(supportDeployment, "replicas: 3") {
+		t.Fatalf("expected topic replica override to replace shared value, got %q", supportDeployment)
 	}
 }
 

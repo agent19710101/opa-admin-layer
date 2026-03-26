@@ -37,3 +37,5 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 ## Immediate repository objective
 
 Ship the workflow system first, then use it to ship the smallest useful vertical slice: validate an admin spec and render a runnable OPA deployment/config plan per tenant/topic, including the Kubernetes config map needed to mount the generated OPA config.
+
+- Deployment scaling is now part of the spec contract through shared `controlPlane.replicas` defaults and topic-level `replicas` overrides.

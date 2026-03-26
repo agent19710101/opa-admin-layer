@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared `controlPlane.replicas` plus topic-level `replicas` overrides for rendered Deployment scaling
 - add shared/topic `deploymentAnnotations` support for rendered Deployment metadata with inherited annotation merging
 - add shared/topic `podAnnotations` support for rendered OPA pod templates with inherited annotation merging
 - add shared `controlPlane.namespace` support with Kubernetes namespace validation and namespace rendering in generated ConfigMap, Deployment, and Service manifests

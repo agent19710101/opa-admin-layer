@@ -38,6 +38,7 @@ type ControlPlane struct {
 	DefaultListenAddress  string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
 	OPAImage              string               `json:"opaImage" yaml:"opaImage"`
 	Namespace             string               `json:"namespace" yaml:"namespace"`
+	Replicas              int                  `json:"replicas" yaml:"replicas"`
 	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
 	DeploymentAnnotations map[string]string    `json:"deploymentAnnotations" yaml:"deploymentAnnotations"`
@@ -68,6 +69,7 @@ type Topic struct {
 	BundleResource        string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
 	DecisionPath          string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
 	Labels                map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Replicas              int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
 	ServiceType           string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
 	DeploymentAnnotations map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
@@ -153,6 +155,9 @@ func Validate(spec Specification) []string {
 	if err := validateNamespace(spec.ControlPlane.Namespace); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.namespace is invalid: %v", err))
 	}
+	if err := validateReplicas(spec.ControlPlane.Replicas); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.replicas is invalid: %v", err))
+	}
 	seenTenants := map[string]struct{}{}
 	if err := validateKubernetesServiceType(spec.ControlPlane.ServiceType); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.serviceType is invalid: %v", err))
@@ -216,6 +221,9 @@ func Validate(spec Specification) []string {
 				issues = append(issues, fmt.Sprintf("tenant %q repeats topic %q", tenantName, topicName))
 			} else {
 				seenTopics[topicKey] = struct{}{}
+			}
+			if err := validateReplicas(topic.Replicas); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: %v", tenantName, topicName, err))
 			}
 			for labelKey, labelValue := range topic.Labels {
 				if err := validateKubernetesLabelKey(labelKey); err != nil {
@@ -343,6 +351,13 @@ func validateNamespace(value string) error {
 		return nil
 	}
 	return validateRenderedResourceName(trimmed)
+}
+
+func validateReplicas(value int) error {
+	if value < 0 {
+		return fmt.Errorf("must be zero or greater")
+	}
+	return nil
 }
 
 func validateBaseServiceURL(raw string) error {
@@ -569,6 +584,9 @@ func normalize(spec Specification) Specification {
 		normalized.ControlPlane.OPAImage = DefaultOPAImage
 	}
 	normalized.ControlPlane.Namespace = strings.TrimSpace(normalized.ControlPlane.Namespace)
+	if normalized.ControlPlane.Replicas == 0 {
+		normalized.ControlPlane.Replicas = 1
+	}
 	normalized.ControlPlane.ServiceType = strings.TrimSpace(normalized.ControlPlane.ServiceType)
 	if normalized.ControlPlane.ServiceType == "" {
 		normalized.ControlPlane.ServiceType = "ClusterIP"
@@ -581,6 +599,9 @@ func normalize(spec Specification) Specification {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)
 		for j := range normalized.Tenants[i].Topics {
 			normalized.Tenants[i].Topics[j].Name = strings.TrimSpace(normalized.Tenants[i].Topics[j].Name)
+			if normalized.Tenants[i].Topics[j].Replicas == 0 {
+				normalized.Tenants[i].Topics[j].Replicas = normalized.ControlPlane.Replicas
+			}
 			normalized.Tenants[i].Topics[j].ServiceType = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceType)
 			normalized.Tenants[i].Topics[j].ExternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].ExternalTrafficPolicy)
 			normalized.Tenants[i].Topics[j].InternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].InternalTrafficPolicy)

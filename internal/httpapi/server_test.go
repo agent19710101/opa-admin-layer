@@ -185,6 +185,26 @@ func TestValidateEndpointRejectsInvalidDefaultListenAddress(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointRejectsNegativeReplicas(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","replicas":-1},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","replicas":-2}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte("controlPlane.replicas"),
+		[]byte(`replicas is invalid`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid replicas error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
 func TestValidateEndpointRejectsInvalidNamespace(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","namespace":"Team-A"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))

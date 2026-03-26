@@ -6,6 +6,7 @@ controlPlane:
   defaultListenAddress: ":8181"
   opaImage: openpolicyagent/opa:1.12.1
   namespace: policy-system
+  replicas: 2
   serviceType: ClusterIP
   internalTrafficPolicy: Cluster
   sessionAffinity: ClientIP
@@ -30,6 +31,7 @@ tenants:
         labels:
           environment: dev
           owner: platform
+        replicas: 4
         serviceType: NodePort
         externalTrafficPolicy: Local
         internalTrafficPolicy: Local

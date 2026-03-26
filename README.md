@@ -148,6 +148,7 @@ Example shared namespace, Service metadata, inherited/overridden external and in
 ```json
 {
   "controlPlane": {
+    "replicas": 2,
     "serviceType": "LoadBalancer",
     "externalTrafficPolicy": "Cluster",
     "internalTrafficPolicy": "Cluster",
@@ -180,6 +181,7 @@ Example shared namespace, Service metadata, inherited/overridden external and in
       "topics": [
         {
           "name": "billing",
+          "replicas": 4,
           "serviceType": "NodePort",
           "externalTrafficPolicy": "Local",
           "internalTrafficPolicy": "Local",
