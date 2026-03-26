@@ -100,6 +100,10 @@ func BuildPlan(spec Specification) (Plan, error) {
 			if topic.Replicas != 0 {
 				effectiveReplicas = topic.Replicas
 			}
+			effectiveImagePullPolicy := normalized.ControlPlane.ImagePullPolicy
+			if topic.ImagePullPolicy != "" {
+				effectiveImagePullPolicy = topic.ImagePullPolicy
+			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                   topic.Name,
 				BundleURL:              bundleURL,
@@ -109,7 +113,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
 				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
+				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
 			})
 		}
@@ -143,7 +147,7 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, serviceAccountName string, automountServiceAccountToken *bool, resources ResourceRequirements) string {
+func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, imagePullPolicy, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, serviceAccountName string, automountServiceAccountToken *bool, resources ResourceRequirements) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -165,7 +169,7 @@ metadata:
       containers:
         - name: opa
           image: %s
-          ports:
+%s          ports:
             - name: http
               containerPort: %d
               protocol: TCP
@@ -186,7 +190,7 @@ metadata:
             - --server
             - --addr=%s
             - --config-file=/config/opa-config.yaml
-`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(deploymentLabels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(podLabels, 8), renderServiceAccountNameSection(serviceAccountName, 6), renderAutomountServiceAccountTokenSection(automountServiceAccountToken, 6), configMapName, image, containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
+`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(deploymentAnnotations, 2), renderStringMapBlock(deploymentLabels, 4), replicas, name, renderAnnotationsSection(podAnnotations, 6), renderStringMapBlock(podLabels, 8), renderServiceAccountNameSection(serviceAccountName, 6), renderAutomountServiceAccountTokenSection(automountServiceAccountToken, 6), configMapName, image, renderImagePullPolicySection(imagePullPolicy, 10), containerPort, containerPort, containerPort, renderResourcesBlock(resources, 10), listenAddress)
 }
 
 func renderServiceYAML(name, namespace, workloadName, serviceType, externalTrafficPolicy, internalTrafficPolicy, sessionAffinity string, port int, labels, annotations map[string]string) string {
@@ -300,6 +304,14 @@ func renderServiceAccountNameSection(value string, indent int) string {
 		return ""
 	}
 	return fmt.Sprintf("%sserviceAccountName: %s\n", strings.Repeat(" ", indent), trimmed)
+}
+
+func renderImagePullPolicySection(value string, indent int) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	return fmt.Sprintf("%simagePullPolicy: %s\n", strings.Repeat(" ", indent), trimmed)
 }
 
 func renderAutomountServiceAccountTokenSection(value *bool, indent int) string {

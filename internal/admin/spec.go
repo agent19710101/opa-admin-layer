@@ -37,6 +37,7 @@ type ControlPlane struct {
 	DefaultDecisionPath          string               `json:"defaultDecisionPath" yaml:"defaultDecisionPath"`
 	DefaultListenAddress         string               `json:"defaultListenAddress" yaml:"defaultListenAddress"`
 	OPAImage                     string               `json:"opaImage" yaml:"opaImage"`
+	ImagePullPolicy              string               `json:"imagePullPolicy" yaml:"imagePullPolicy"`
 	Namespace                    string               `json:"namespace" yaml:"namespace"`
 	Replicas                     int                  `json:"replicas" yaml:"replicas"`
 	ServiceType                  string               `json:"serviceType" yaml:"serviceType"`
@@ -77,6 +78,7 @@ type Topic struct {
 	DecisionPath                 string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
 	Labels                       map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
 	Replicas                     int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
+	ImagePullPolicy              string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
 	ServiceType                  string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
 	ServiceAnnotations           map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
 	ServiceLabels                map[string]string    `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
@@ -171,6 +173,9 @@ func Validate(spec Specification) []string {
 	}
 	if err := validateReplicas(spec.ControlPlane.Replicas); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.replicas is invalid: %v", err))
+	}
+	if err := validateImagePullPolicy(spec.ControlPlane.ImagePullPolicy); err != nil {
+		issues = append(issues, fmt.Sprintf("controlPlane.imagePullPolicy is invalid: %v", err))
 	}
 	if err := validateServiceAccountName(spec.ControlPlane.ServiceAccountName); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountName is invalid: %v", err))
@@ -278,6 +283,9 @@ func Validate(spec Specification) []string {
 			}
 			if err := validateReplicas(topic.Replicas); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: %v", tenantName, topicName, err))
+			}
+			if err := validateImagePullPolicy(topic.ImagePullPolicy); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q imagePullPolicy is invalid: %v", tenantName, topicName, err))
 			}
 			if err := validateServiceAccountName(topic.ServiceAccountName); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountName is invalid: %v", tenantName, topicName, err))
@@ -452,6 +460,19 @@ func validateReplicas(value int) error {
 		return fmt.Errorf("must be zero or greater")
 	}
 	return nil
+}
+
+func validateImagePullPolicy(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	switch trimmed {
+	case "Always", "IfNotPresent", "Never":
+		return nil
+	default:
+		return fmt.Errorf("must be Always, IfNotPresent, or Never")
+	}
 }
 
 func validateServiceAccountName(value string) error {
@@ -685,6 +706,7 @@ func normalize(spec Specification) Specification {
 	if strings.TrimSpace(normalized.ControlPlane.OPAImage) == "" {
 		normalized.ControlPlane.OPAImage = DefaultOPAImage
 	}
+	normalized.ControlPlane.ImagePullPolicy = strings.TrimSpace(normalized.ControlPlane.ImagePullPolicy)
 	normalized.ControlPlane.Namespace = strings.TrimSpace(normalized.ControlPlane.Namespace)
 	if normalized.ControlPlane.Replicas == 0 {
 		normalized.ControlPlane.Replicas = 1
@@ -705,6 +727,7 @@ func normalize(spec Specification) Specification {
 			if normalized.Tenants[i].Topics[j].Replicas == 0 {
 				normalized.Tenants[i].Topics[j].Replicas = normalized.ControlPlane.Replicas
 			}
+			normalized.Tenants[i].Topics[j].ImagePullPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].ImagePullPolicy)
 			normalized.Tenants[i].Topics[j].ServiceAccountName = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceAccountName)
 			normalized.Tenants[i].Topics[j].ServiceType = strings.TrimSpace(normalized.Tenants[i].Topics[j].ServiceType)
 			normalized.Tenants[i].Topics[j].ExternalTrafficPolicy = strings.TrimSpace(normalized.Tenants[i].Topics[j].ExternalTrafficPolicy)

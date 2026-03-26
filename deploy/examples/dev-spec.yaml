@@ -33,6 +33,7 @@ controlPlane:
     example.com/workload-class: shared
     example.com/team: platform
   serviceAccountName: opa-shared
+  imagePullPolicy: IfNotPresent
   automountServiceAccountToken: false
   opaResources:
     requests:
@@ -77,6 +78,7 @@ tenants:
           example.com/workload-class: billing
           example.com/team: payments
         serviceAccountName: billing-opa
+        imagePullPolicy: Always
         automountServiceAccountToken: true
         opaResources:
           requests:

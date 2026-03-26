@@ -38,6 +38,7 @@
       "example.com/team": "platform"
     },
     "serviceAccountName": "opa-shared",
+    "imagePullPolicy": "IfNotPresent",
     "automountServiceAccountToken": false,
     "opaResources": {
       "requests": {
@@ -97,6 +98,7 @@
             "example.com/team": "payments"
           },
           "serviceAccountName": "billing-opa",
+          "imagePullPolicy": "Always",
           "automountServiceAccountToken": true,
           "opaResources": {
             "requests": {

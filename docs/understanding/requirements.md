@@ -39,7 +39,8 @@
 27. Operators should be able to declare shared and topic-level `configMapLabels` values for rendered ConfigMaps so object-scoped discovery, GitOps, or policy labels can be expressed without mutating Services, Deployments, or pod templates.
 28. Operators should be able to declare shared and topic-level `serviceAccountName` values for rendered OPA Deployments so workload identity and RBAC binding can be selected without downstream patches.
 29. Operators should be able to declare shared and topic-level `automountServiceAccountToken` values for rendered OPA Deployments so service-account token projection can be explicitly enabled or disabled without downstream patches.
-30. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
+30. Operators should be able to declare shared and topic-level `imagePullPolicy` values for rendered OPA Deployments, limited to Kubernetes `Always`, `IfNotPresent`, and `Never`, so pull behavior can be controlled without downstream patches.
+31. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
 
 ## Operational requirements
 

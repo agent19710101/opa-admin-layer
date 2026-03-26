@@ -1572,3 +1572,86 @@ func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlanMergesTopicImagePullPolicyOverSharedDefault(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:  "https://control.example.com",
+			ImagePullPolicy: "IfNotPresent",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:            "billing",
+				ImagePullPolicy: "Always",
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingDeployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if !strings.Contains(billingDeployment, "imagePullPolicy: Always") {
+		t.Fatalf("expected topic imagePullPolicy override in billing deployment, got %q", billingDeployment)
+	}
+	if strings.Contains(billingDeployment, "imagePullPolicy: IfNotPresent") {
+		t.Fatalf("expected topic imagePullPolicy override to replace shared value, got %q", billingDeployment)
+	}
+	supportDeployment := plan.Tenants[0].Topics[1].DeploymentManifestYAML
+	if !strings.Contains(supportDeployment, "imagePullPolicy: IfNotPresent") {
+		t.Fatalf("expected support deployment to inherit shared imagePullPolicy, got %q", supportDeployment)
+	}
+}
+
+func TestBuildPlanOmitsImagePullPolicyByDefault(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	if strings.Contains(deployment, "imagePullPolicy:") {
+		t.Fatalf("expected deployment manifest to omit imagePullPolicy by default, got %q", deployment)
+	}
+}
+
+func TestValidateRejectsInvalidImagePullPolicy(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:  "https://control.example.com",
+			ImagePullPolicy: "Sometimes",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:            "billing",
+				ImagePullPolicy: "OnDemand",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		"controlPlane.imagePullPolicy is invalid",
+		`tenant "tenant-a" topic "billing" imagePullPolicy is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid imagePullPolicy issue %q, got %#v", expected, issues)
+		}
+	}
+}

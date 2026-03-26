@@ -110,6 +110,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 
 - strict JSON or YAML decoding for CLI and REST input (unknown fields are rejected early in both formats)
 - configurable but pinned OPA image selection via `controlPlane.opaImage`
+- optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express Kubernetes image pull behavior without downstream patches
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL
 - generated OPA config YAML
@@ -129,6 +130,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
 - optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.serviceAccountName` plus topic-level overrides so rendered OPA Deployments can bind to explicit Kubernetes workload identities without downstream patches
+- optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express `Always`, `IfNotPresent`, or `Never` image pull behavior without downstream patches
 - optional shared `controlPlane.automountServiceAccountToken` plus topic-level overrides so rendered OPA Deployments can explicitly keep or disable service-account token projection without downstream patches
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
 - optional shared `controlPlane.internalTrafficPolicy` plus topic-level overrides so generated Services can steer in-cluster node-local routing (`Cluster` or `Local`) without downstream patching
@@ -189,6 +191,7 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
       "example.com/team": "platform"
     },
     "serviceAccountName": "opa-shared",
+    "imagePullPolicy": "IfNotPresent",
     "automountServiceAccountToken": false,
     "opaResources": {
       "requests": {
@@ -240,6 +243,7 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
             "example.com/team": "payments"
           },
           "serviceAccountName": "billing-opa",
+          "imagePullPolicy": "Always",
           "automountServiceAccountToken": true,
           "opaResources": {
             "requests": {
