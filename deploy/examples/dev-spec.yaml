@@ -12,6 +12,8 @@ controlPlane:
   sessionAffinity: ClientIP
   serviceAnnotations:
     example.com/health-check-path: /health?plugins
+  configMapAnnotations:
+    reloader.stakater.com/match: "true"
   deploymentAnnotations:
     example.com/owner: platform
     example.com/revision-window: shared

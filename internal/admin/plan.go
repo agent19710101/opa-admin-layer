@@ -60,6 +60,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			renderedLabels := mergeTopicLabels(builtInLabels, topic.Labels)
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
+			effectiveConfigMapAnnotations := normalized.ControlPlane.ConfigMapAnnotations
 			effectiveServiceType := normalized.ControlPlane.ServiceType
 			if topic.ServiceType != "" {
 				effectiveServiceType = topic.ServiceType
@@ -95,7 +96,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Namespace:              normalized.ControlPlane.Namespace,
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
-				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels),
+				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels, effectiveConfigMapAnnotations),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})
@@ -117,17 +118,17 @@ bundles:
 `, baseURL, bundleResource)
 }
 
-func renderConfigMapYAML(name, namespace, opaConfig string, labels map[string]string) string {
+func renderConfigMapYAML(name, namespace, opaConfig string, labels, annotations map[string]string) string {
 	indentedConfig := strings.ReplaceAll(strings.TrimRight(opaConfig, "\n"), "\n", "\n    ")
 	return fmt.Sprintf(`apiVersion: v1
 kind: ConfigMap
 metadata:
   name: %s
-%s  labels:
+%s%s  labels:
 %sdata:
   opa-config.yaml: |
     %s
-`, name, renderNamespaceSection(namespace, 2), renderStringMapBlock(labels, 4), indentedConfig)
+`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
 func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, resources ResourceRequirements) string {

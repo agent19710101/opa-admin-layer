@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared `controlPlane.configMapAnnotations` support for rendered ConfigMap metadata with Kubernetes annotation-key validation
 - add shared/topic `podLabels` support for rendered Deployment pod templates with selector-safe inherited label merging
 
 - add shared `controlPlane.replicas` plus topic-level `replicas` overrides for rendered Deployment scaling

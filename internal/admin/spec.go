@@ -41,6 +41,7 @@ type ControlPlane struct {
 	Replicas              int                  `json:"replicas" yaml:"replicas"`
 	ServiceType           string               `json:"serviceType" yaml:"serviceType"`
 	ServiceAnnotations    map[string]string    `json:"serviceAnnotations" yaml:"serviceAnnotations"`
+	ConfigMapAnnotations  map[string]string    `json:"configMapAnnotations" yaml:"configMapAnnotations"`
 	DeploymentAnnotations map[string]string    `json:"deploymentAnnotations" yaml:"deploymentAnnotations"`
 	DeploymentLabels      map[string]string    `json:"deploymentLabels" yaml:"deploymentLabels"`
 	PodAnnotations        map[string]string    `json:"podAnnotations" yaml:"podAnnotations"`
@@ -169,6 +170,11 @@ func Validate(spec Specification) []string {
 	for annotationKey := range spec.ControlPlane.ServiceAnnotations {
 		if err := validateKubernetesLabelKey(annotationKey); err != nil {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAnnotations key %q is invalid: %v", annotationKey, err))
+		}
+	}
+	for annotationKey := range spec.ControlPlane.ConfigMapAnnotations {
+		if err := validateKubernetesLabelKey(annotationKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.configMapAnnotations key %q is invalid: %v", annotationKey, err))
 		}
 	}
 	for annotationKey := range spec.ControlPlane.DeploymentAnnotations {

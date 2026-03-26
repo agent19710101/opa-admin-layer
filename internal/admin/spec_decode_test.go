@@ -15,6 +15,8 @@ controlPlane:
   replicas: 3
   serviceAnnotations:
     example.com/internal: "true"
+  configMapAnnotations:
+    reloader.stakater.com/match: "true"
   deploymentAnnotations:
     example.com/owner: platform
   podAnnotations:
@@ -48,6 +50,9 @@ tenants:
 	}
 	if got := spec.ControlPlane.ServiceAnnotations["example.com/internal"]; got != "true" {
 		t.Fatalf("expected service annotation to decode, got %q", got)
+	}
+	if got := spec.ControlPlane.ConfigMapAnnotations["reloader.stakater.com/match"]; got != "true" {
+		t.Fatalf("expected config map annotation to decode, got %q", got)
 	}
 	if got := spec.ControlPlane.DeploymentAnnotations["example.com/owner"]; got != "platform" {
 		t.Fatalf("expected deployment annotation to decode, got %q", got)

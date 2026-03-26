@@ -13,6 +13,9 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
   "name": "demo",
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
+    "configMapAnnotations": {
+      "reloader.stakater.com/match": "true"
+    },
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -57,6 +60,15 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s to exist: %v", path, err)
 		}
+	}
+
+	configMapBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "configmap.yaml"))
+	if err != nil {
+		t.Fatalf("read configmap: %v", err)
+	}
+	configMap := string(configMapBytes)
+	if !strings.Contains(configMap, `reloader.stakater.com/match: "true"`) {
+		t.Fatalf("expected shared configMap annotation in rendered configmap, got %s", configMap)
 	}
 
 	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))

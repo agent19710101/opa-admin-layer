@@ -401,9 +401,9 @@ func TestValidateEndpointRejectsExternalTrafficPolicyWithoutExternallyExposedSer
 	}
 }
 
-func TestValidateEndpointRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing.T) {
+func TestValidateEndpointRejectsInvalidConfigMapDeploymentAndPodAnnotationKeys(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","deploymentAnnotations":{"Example.com/deployment":"true"},"podAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","deploymentAnnotations":{"Example.com/topic-deployment":"true"},"podAnnotations":{"Example.com/topic":"true"}}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","configMapAnnotations":{"Example.com/config":"true"},"deploymentAnnotations":{"Example.com/deployment":"true"},"podAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","deploymentAnnotations":{"Example.com/topic-deployment":"true"},"podAnnotations":{"Example.com/topic":"true"}}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -412,6 +412,7 @@ func TestValidateEndpointRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing
 		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
 	}
 	for _, expected := range [][]byte{
+		[]byte(`controlPlane.configMapAnnotations key`),
 		[]byte(`controlPlane.deploymentAnnotations key`),
 		[]byte(`controlPlane.podAnnotations key`),
 		[]byte(`deploymentAnnotations key \"Example.com/topic-deployment\" is invalid`),
@@ -419,6 +420,26 @@ func TestValidateEndpointRejectsInvalidDeploymentAndPodAnnotationKeys(t *testing
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
 			t.Fatalf("expected invalid annotation error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
+func TestPlanEndpointRendersSharedConfigMapAnnotations(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","configMapAnnotations":{"reloader.stakater.com/match":"true","example.com/source":"generated"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`"configMapManifestYAML":"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo-tenant-a-billing-opa-config\n  annotations:\n    example.com/source: \"generated\"\n    reloader.stakater.com/match: \"true\"`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected rendered config map annotations in response, got %s", rec.Body.String())
 		}
 	}
 }
