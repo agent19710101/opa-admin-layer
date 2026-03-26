@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"strings"
 
 	"github.com/agent19710101/opa-admin-layer/internal/admin"
 )
@@ -54,6 +56,10 @@ func decodeSpec(w http.ResponseWriter, r *http.Request) (admin.Specification, bo
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": fmt.Sprintf("method %s not allowed", r.Method)})
 		return admin.Specification{}, false
 	}
+	if err := validateContentType(r.Header.Get("Content-Type")); err != nil {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{"error": err.Error()})
+		return admin.Specification{}, false
+	}
 	defer r.Body.Close()
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -66,6 +72,23 @@ func decodeSpec(w http.ResponseWriter, r *http.Request) (admin.Specification, bo
 		return admin.Specification{}, false
 	}
 	return spec, true
+}
+
+func validateContentType(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	mediaType, _, err := mime.ParseMediaType(trimmed)
+	if err != nil {
+		return fmt.Errorf("unsupported Content-Type %q: accepted types are application/json, application/yaml, application/x-yaml, text/yaml, or text/x-yaml", raw)
+	}
+	switch mediaType {
+	case "application/json", "application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml":
+		return nil
+	default:
+		return fmt.Errorf("unsupported Content-Type %q: accepted types are application/json, application/yaml, application/x-yaml, text/yaml, or text/x-yaml", mediaType)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

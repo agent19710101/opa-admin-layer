@@ -66,10 +66,22 @@ curl -s http://localhost:8080/healthz
 curl -s http://localhost:8080/v1/validate \
   -H 'content-type: application/json' \
   --data @deploy/examples/dev-spec.json
+curl -s http://localhost:8080/v1/validate \
+  -H 'content-type: application/yaml' \
+  --data-binary @deploy/examples/dev-spec.yaml
 curl -s http://localhost:8080/v1/plans \
   -H 'content-type: application/json' \
   --data @deploy/examples/dev-spec.json
 ```
+
+Accepted REST request media types for `/v1/validate` and `/v1/plans`:
+
+- `application/json`
+- `application/yaml`
+- `application/x-yaml`
+- `text/yaml`
+- `text/x-yaml`
+- empty `Content-Type` is also accepted for simple callers and falls back to payload sniffing
 
 ## Workflow loop
 

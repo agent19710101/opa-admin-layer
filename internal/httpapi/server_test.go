@@ -19,6 +19,19 @@ func TestValidateEndpoint(t *testing.T) {
 	}
 	body, _ := json.Marshal(spec)
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestValidateEndpointAcceptsMissingContentType(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -31,6 +44,7 @@ func TestValidateEndpoint(t *testing.T) {
 func TestPlanEndpointRejectsInvalidPayload(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"","tenants":[]}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -43,6 +57,7 @@ func TestPlanEndpointRejectsInvalidPayload(t *testing.T) {
 func TestValidateEndpointRejectsUnknownFields(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","unexpected":true}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -78,6 +93,42 @@ tenants:
 	}
 }
 
+func TestValidateEndpointAcceptsLegacyYAMLContentType(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`name: demo
+controlPlane:
+  baseServiceURL: https://control.example.com
+tenants:
+  - name: tenant-a
+    topics:
+      - name: billing
+`))
+	req.Header.Set("Content-Type", "application/x-yaml; charset=utf-8")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestValidateEndpointRejectsUnsupportedContentType(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "text/plain")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected 415, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("accepted types are application/json")) {
+		t.Fatalf("expected accepted content types in error, got %s", rec.Body.String())
+	}
+}
+
 func TestPlanEndpointRejectsUnknownYAMLFields(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`name: demo
@@ -89,6 +140,7 @@ tenants:
       - name: billing
         unexpected: true
 `))
+	req.Header.Set("Content-Type", "application/yaml")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -104,6 +156,7 @@ tenants:
 func TestValidateEndpointRejectsInvalidBaseServiceURL(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"/control"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -119,6 +172,7 @@ func TestValidateEndpointRejectsInvalidBaseServiceURL(t *testing.T) {
 func TestValidateEndpointRejectsInvalidDefaultListenAddress(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","defaultListenAddress":"localhost"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -134,6 +188,7 @@ func TestValidateEndpointRejectsInvalidDefaultListenAddress(t *testing.T) {
 func TestValidateEndpointRejectsInvalidTopicLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","labels":{"Example.com/owner":"platform!"}}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
