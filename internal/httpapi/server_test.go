@@ -470,6 +470,54 @@ func TestPlanEndpointRendersMergedTopicConfigMapAnnotations(t *testing.T) {
 	}
 }
 
+func TestPlanEndpointRendersMergedTopicConfigMapLabels(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","configMapLabels":{"example.com/config-scope":"shared","example.com/team":"platform"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","configMapLabels":{"example.com/config-scope":"billing","example.com/ring":"canary","app.kubernetes.io/name":"do-not-override"}}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`example.com/config-scope: \"billing\"`),
+		[]byte(`example.com/ring: \"canary\"`),
+		[]byte(`example.com/team: \"platform\"`),
+		[]byte(`app.kubernetes.io/name: \"demo-tenant-a-billing-opa\"`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected rendered config map label %q in response, got %s", expected, rec.Body.String())
+		}
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`app.kubernetes.io/name: \"do-not-override\"`)) {
+		t.Fatalf("expected built-in config map label to remain immutable, got %s", rec.Body.String())
+	}
+}
+
+func TestValidateEndpointRejectsInvalidConfigMapLabels(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","configMapLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","configMapLabels":{"Example.com/topic":"ok","example.com/ring":"bad!"}}]}]}`))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`controlPlane.configMapLabels key`),
+		[]byte(`controlPlane.configMapLabels label`),
+		[]byte(`configMapLabels key \"Example.com/topic\" is invalid`),
+		[]byte(`configMapLabels label \"example.com/ring\" has invalid value`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid config map label error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
 func TestValidateEndpointRejectsInvalidDeploymentLabels(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","deploymentLabels":{"Example.com/shared":"ok","example.com/value":"bad!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","deploymentLabels":{"Example.com/topic":"ok","example.com/track":"bad!"}}]}]}`))

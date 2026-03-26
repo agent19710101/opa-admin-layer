@@ -1157,6 +1157,95 @@ func TestBuildPlanMergesTopicDeploymentAndPodAnnotationsOverSharedDefaults(t *te
 	}
 }
 
+func TestBuildPlanMergesTopicConfigMapLabelsOverSharedDefaultsWithoutMutatingOtherObjects(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ConfigMapLabels: map[string]string{
+				"example.com/config-scope": "shared",
+				"example.com/team":         "platform",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"example.com/team": "topic-metadata",
+				},
+				ConfigMapLabels: map[string]string{
+					"example.com/config-scope": "billing",
+					"example.com/ring":         "canary",
+					"app.kubernetes.io/name":   "do-not-override",
+				},
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	configMap := plan.Tenants[0].Topics[0].ConfigMapManifestYAML
+	for _, expected := range []string{
+		`example.com/config-scope: "billing"`,
+		`example.com/ring: "canary"`,
+		`example.com/team: "platform"`,
+		`app.kubernetes.io/name: "demo-tenant-a-billing-opa"`,
+	} {
+		if !strings.Contains(configMap, expected) {
+			t.Fatalf("expected config map manifest to contain %q, got %q", expected, configMap)
+		}
+	}
+	if strings.Contains(configMap, `app.kubernetes.io/name: "do-not-override"`) {
+		t.Fatalf("expected built-in config map label to remain immutable, got %q", configMap)
+	}
+	deployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	service := plan.Tenants[0].Topics[0].ServiceManifestYAML
+	for _, manifest := range []string{deployment, service} {
+		if strings.Contains(manifest, `example.com/config-scope`) || strings.Contains(manifest, `example.com/ring`) {
+			t.Fatalf("expected config map labels to stay configmap-scoped, got %q", manifest)
+		}
+	}
+}
+
+func TestValidateRejectsInvalidConfigMapLabels(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ConfigMapLabels: map[string]string{
+				"Example.com/shared": "ok",
+				"example.com/value":  "bad!",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				ConfigMapLabels: map[string]string{
+					"Example.com/topic": "ok",
+					"example.com/ring":  "bad!",
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.configMapLabels key "Example.com/shared" is invalid`,
+		`controlPlane.configMapLabels label "example.com/value" has invalid value "bad!"`,
+		`tenant "tenant-a" topic "billing" configMapLabels key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" configMapLabels label "example.com/ring" has invalid value "bad!"`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid config map label issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
 func TestValidateRejectsInvalidConfigMapDeploymentAndPodAnnotationKeys(t *testing.T) {
 	spec := Specification{
 		Name: "demo",

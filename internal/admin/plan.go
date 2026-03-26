@@ -61,6 +61,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 			configMapName := topicConfigMapName(normalized.Name, tenant.Name, topic.Name)
 			effectiveResources := mergeResourceRequirements(normalized.ControlPlane.OPAResources, topic.OPAResources)
 			effectiveConfigMapAnnotations := mergeStringMap(normalized.ControlPlane.ConfigMapAnnotations, topic.ConfigMapAnnotations)
+			effectiveConfigMapLabels := mergeStringMap(normalized.ControlPlane.ConfigMapLabels, topic.ConfigMapLabels)
+			renderedConfigMapLabels := mergeProtectedStringMap(renderedLabels, effectiveConfigMapLabels, builtInLabels)
 			effectiveServiceType := normalized.ControlPlane.ServiceType
 			if topic.ServiceType != "" {
 				effectiveServiceType = topic.ServiceType
@@ -104,7 +106,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Namespace:              normalized.ControlPlane.Namespace,
 				Labels:                 topic.Labels,
 				OPAConfigYAML:          opaConfigYAML,
-				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedLabels, effectiveConfigMapAnnotations),
+				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
 				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
 				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedLabels, effectiveServiceAnnotations),
 			})

@@ -122,6 +122,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - configurable rendered Kubernetes Service type via `controlPlane.serviceType`, defaulting to `ClusterIP` and rejecting unsupported values early
 - optional shared rendered Service annotations via `controlPlane.serviceAnnotations` for controller/load-balancer integration metadata without post-render patching
 - optional shared `controlPlane.configMapAnnotations` plus topic-level `configMapAnnotations` overrides so rendered ConfigMaps can carry reloader, ownership, or GitOps metadata without downstream patching
+- optional shared `controlPlane.configMapLabels` plus topic-level overrides so rendered ConfigMaps can carry object-scoped labels without mutating Services, Deployments, or pod templates
 - optional shared `controlPlane.deploymentAnnotations` plus topic-level overrides so rendered Deployments can carry rollout, ownership, or GitOps metadata without downstream patching
 - optional shared `controlPlane.deploymentLabels` plus topic-level overrides so rendered Deployment metadata can carry rollout tracking, ownership, or GitOps labels without mutating Services, ConfigMaps, or pod templates
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
@@ -165,6 +166,10 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
     "configMapAnnotations": {
       "reloader.stakater.com/match": "true",
       "example.com/source": "generated"
+    },
+    "configMapLabels": {
+      "example.com/config-scope": "shared",
+      "example.com/team": "platform"
     },
     "deploymentAnnotations": {
       "example.com/owner": "platform",
@@ -212,6 +217,10 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
           "configMapAnnotations": {
             "example.com/source": "billing",
             "example.com/team": "payments"
+          },
+          "configMapLabels": {
+            "example.com/config-scope": "billing",
+            "example.com/ring": "canary"
           },
           "deploymentAnnotations": {
             "example.com/revision-window": "billing",

@@ -14,6 +14,9 @@ controlPlane:
     example.com/health-check-path: /health?plugins
   configMapAnnotations:
     reloader.stakater.com/match: "true"
+  configMapLabels:
+    example.com/config-scope: shared
+    example.com/team: platform
   deploymentAnnotations:
     example.com/owner: platform
     example.com/revision-window: shared
@@ -52,6 +55,9 @@ tenants:
         configMapAnnotations:
           example.com/source: billing
           example.com/team: payments
+        configMapLabels:
+          example.com/config-scope: billing
+          example.com/ring: canary
         deploymentAnnotations:
           example.com/revision-window: billing
           example.com/rollout: canary

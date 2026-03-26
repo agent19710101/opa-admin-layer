@@ -17,6 +17,8 @@ controlPlane:
     example.com/internal: "true"
   configMapAnnotations:
     reloader.stakater.com/match: "true"
+  configMapLabels:
+    example.com/config-scope: shared
   deploymentAnnotations:
     example.com/owner: platform
   podAnnotations:
@@ -34,6 +36,8 @@ tenants:
         automountServiceAccountToken: true
         configMapAnnotations:
           example.com/source: topic
+        configMapLabels:
+          example.com/config-scope: topic
         podLabels:
           example.com/workload-class: topic
 `)
@@ -59,6 +63,9 @@ tenants:
 	}
 	if got := spec.ControlPlane.ConfigMapAnnotations["reloader.stakater.com/match"]; got != "true" {
 		t.Fatalf("expected config map annotation to decode, got %q", got)
+	}
+	if got := spec.ControlPlane.ConfigMapLabels["example.com/config-scope"]; got != "shared" {
+		t.Fatalf("expected config map label to decode, got %q", got)
 	}
 	if got := spec.ControlPlane.DeploymentAnnotations["example.com/owner"]; got != "platform" {
 		t.Fatalf("expected deployment annotation to decode, got %q", got)
@@ -89,6 +96,9 @@ tenants:
 	}
 	if got := spec.Tenants[0].Topics[0].ConfigMapAnnotations["example.com/source"]; got != "topic" {
 		t.Fatalf("expected topic configMapAnnotations to decode, got %q", got)
+	}
+	if got := spec.Tenants[0].Topics[0].ConfigMapLabels["example.com/config-scope"]; got != "topic" {
+		t.Fatalf("expected topic configMapLabels to decode, got %q", got)
 	}
 	if got := spec.Tenants[0].Topics[0].PodLabels["example.com/workload-class"]; got != "topic" {
 		t.Fatalf("expected topic pod label to decode, got %q", got)

@@ -43,6 +43,10 @@
       "limits": {
         "memory": "512Mi"
       }
+    },
+    "configMapLabels": {
+      "example.com/config-scope": "shared",
+      "example.com/team": "platform"
     }
   },
   "tenants": [
@@ -90,15 +94,24 @@
             "requests": {
               "memory": "256Mi"
             }
+          },
+          "configMapLabels": {
+            "example.com/config-scope": "billing",
+            "example.com/ring": "canary"
           }
         },
-        {"name": "support", "decisionPath": "support/authz/allow"}
+        {
+          "name": "support",
+          "decisionPath": "support/authz/allow"
+        }
       ]
     },
     {
       "name": "tenant-b",
       "topics": [
-        {"name": "catalog"}
+        {
+          "name": "catalog"
+        }
       ]
     }
   ]
