@@ -109,6 +109,7 @@ The dispatcher advances one phase per run in this order:
 The first shipped slice validates a tenant/topic scoped admin spec and renders an OPA-only plan containing:
 
 - strict JSON or YAML decoding for CLI and REST input (unknown fields are rejected early in both formats)
+- shared `controlPlane.defaultListenAddress` plus topic-level `listenAddress` overrides so one workload can move to a different OPA socket/Service port without forking the rest of the control-plane defaults
 - configurable but pinned OPA image selection via `controlPlane.opaImage`
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express Kubernetes image pull behavior without downstream patches
 - optional shared `controlPlane.autoscaling` plus topic-level overrides so generated workloads can emit Kubernetes HorizontalPodAutoscaler manifests with CPU and/or memory utilization targets and optional scale-up/scale-down stabilization windows, `selectPolicy`, and explicit scaling `policies` without downstream patching, with effective matching `opaResources.requests.cpu` and/or `opaResources.requests.memory` required for configured autoscaling metrics

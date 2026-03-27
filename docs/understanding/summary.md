@@ -36,6 +36,7 @@ Build an OPA administration layer that helps operators define tenant/topic scope
 - Admin spec ingestion should match operator workflow realities by accepting both strict JSON and strict YAML through the same CLI and REST contract, and the repository should carry runnable examples for both formats so that support is visible to operators.
 - `controlPlane.baseServiceURL` now follows the same up-front contract posture as Kubernetes-facing fields: validation requires an absolute HTTP(S) URL so bundle URL and OPA config rendering cannot silently normalize broken control-plane endpoints.
 - `controlPlane.defaultListenAddress` is now validated before render when provided, with an intentionally small accepted contract (`:port`, `host:port`, or bracketed IPv6 `host:port`) so generated OPA args, probes, and Service ports stay aligned; the renderer now reuses the same strict parser instead of carrying a separate fallback port path.
+- Topics can now override that shared socket through `listenAddress`, letting one rendered Deployment and Service move to a different OPA port without cloning the whole control-plane spec.
 
 ## Locked project decisions
 

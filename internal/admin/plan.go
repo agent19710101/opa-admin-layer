@@ -42,10 +42,6 @@ func BuildPlan(spec Specification) (Plan, error) {
 		return Plan{}, errors.New(strings.Join(issues, "; "))
 	}
 	normalized := normalize(spec)
-	listenPort, err := parseListenAddressPort(normalized.ControlPlane.DefaultListenAddress)
-	if err != nil {
-		return Plan{}, fmt.Errorf("normalized controlPlane.defaultListenAddress is invalid: %w", err)
-	}
 	plan := Plan{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Name:        normalized.Name,
@@ -56,6 +52,11 @@ func BuildPlan(spec Specification) (Plan, error) {
 	for _, tenant := range normalized.Tenants {
 		tenantPlan := TenantPlan{Name: tenant.Name, Topics: make([]TopicPlan, 0, len(tenant.Topics))}
 		for _, topic := range tenant.Topics {
+			effectiveListenAddress := topic.ListenAddress
+			listenPort, err := parseListenAddressPort(effectiveListenAddress)
+			if err != nil {
+				return Plan{}, fmt.Errorf("normalized tenant %q topic %q listenAddress is invalid: %w", tenant.Name, topic.Name, err)
+			}
 			bundleURL := strings.TrimRight(normalized.ControlPlane.BaseServiceURL, "/") + "/" + strings.TrimLeft(topic.BundleResource, "/")
 			opaConfigYAML := renderOPAConfigYAML(normalized.ControlPlane.BaseServiceURL, topic.BundleResource)
 			workloadName := deploymentName(normalized.Name, tenant.Name, topic.Name)
@@ -132,13 +133,13 @@ func BuildPlan(spec Specification) (Plan, error) {
 				Name:                       topic.Name,
 				BundleURL:                  bundleURL,
 				DecisionPath:               topic.DecisionPath,
-				ListenAddress:              normalized.ControlPlane.DefaultListenAddress,
+				ListenAddress:              effectiveListenAddress,
 				Namespace:                  normalized.ControlPlane.Namespace,
 				Labels:                     topic.Labels,
 				OPAConfigYAML:              opaConfigYAML,
 				ConfigMapManifestYAML:      renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
 				ServiceAccountManifestYAML: serviceAccountManifestYAML,
-				DeploymentManifestYAML:     renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
+				DeploymentManifestYAML:     renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, effectiveListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
 				ServiceManifestYAML:        renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
 				HPAManifestYAML:            hpaManifestYAML,
 			})

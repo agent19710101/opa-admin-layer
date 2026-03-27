@@ -2425,3 +2425,66 @@ func TestBuildPlanRendersAutoscalingBehavior(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlanUsesTopicListenAddressOverride(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:       "https://control.example.com",
+			DefaultListenAddress: ":8181",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:          "billing",
+				ListenAddress: "127.0.0.1:8282",
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billing := plan.Tenants[0].Topics[0]
+	if billing.ListenAddress != "127.0.0.1:8282" {
+		t.Fatalf("expected topic listenAddress override to be recorded, got %q", billing.ListenAddress)
+	}
+	for _, expected := range []string{
+		"containerPort: 8282",
+		"port: 8282",
+		"targetPort: 8282",
+		"--addr=127.0.0.1:8282",
+	} {
+		if !strings.Contains(billing.DeploymentManifestYAML+billing.ServiceManifestYAML, expected) {
+			t.Fatalf("expected topic listenAddress override output %q, got deployment=%q service=%q", expected, billing.DeploymentManifestYAML, billing.ServiceManifestYAML)
+		}
+	}
+	support := plan.Tenants[0].Topics[1]
+	if support.ListenAddress != ":8181" {
+		t.Fatalf("expected sibling topic to inherit control-plane listenAddress, got %q", support.ListenAddress)
+	}
+}
+
+func TestValidateRejectsInvalidTopicListenAddress(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name:          "billing",
+				ListenAddress: "localhost",
+			}},
+		}},
+	}
+
+	issues := strings.Join(Validate(spec), "\n")
+	if !strings.Contains(issues, `tenant "tenant-a" topic "billing" listenAddress is invalid`) {
+		t.Fatalf("expected invalid topic listenAddress issue, got %s", issues)
+	}
+}

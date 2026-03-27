@@ -5,7 +5,7 @@
 - OPA-only is the correct starting topology, but fast-changing data may later require bundle/discovery improvements or OPAL-like capabilities.
 - A hard-coded OPA image can drift from environment-specific registry, mirroring, or approval policy unless the plan renderer exposes that pin as spec input.
 - A deployment manifest that references `/config/opa-config.yaml` without provisioning it is not runnable and pushes avoidable integration work onto operators.
-- Deployment health probes now assume the normalized listen address exposes OPA HTTP health endpoints on the derived port; future HTTPS or auth-protected control-plane patterns may need probe configurability.
+- Deployment health probes now assume the effective shared/topic listen address exposes OPA HTTP health endpoints on the derived port; future HTTPS or auth-protected control-plane patterns may need probe configurability.
 - Shared Service type/annotation/label/traffic-policy/session-affinity controls remove common patch points, but future edge, mesh, multi-port exposure, or deeper affinity tuning may still require broader networking controls.
 - Autoscaling now covers CPU and memory utilization targets plus narrow behavior controls for stabilization windows, `selectPolicy`, and explicit scaling policies, but custom metrics and broader HPA/controller passthrough still remain outside the current contract.
 - Shared OPA resource defaults now validate Kubernetes quantity syntax before render, and inherited request<=limit guardrails keep topic overrides from rendering obviously invalid Kubernetes budgets; future slices may still need higher-level range/ratio policy so teams do not create inconsistent scheduling policy or unreviewed workload drift.

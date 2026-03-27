@@ -104,6 +104,7 @@ type Topic struct {
 	Name                            string               `json:"name" yaml:"name"`
 	BundleResource                  string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
 	DecisionPath                    string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	ListenAddress                   string               `json:"listenAddress,omitempty" yaml:"listenAddress,omitempty"`
 	Labels                          map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
 	Replicas                        int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
 	ImagePullPolicy                 string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
@@ -339,6 +340,9 @@ func Validate(spec Specification) []string {
 				issues = append(issues, fmt.Sprintf("tenant %q repeats topic %q", tenantName, topicName))
 			} else {
 				seenTopics[topicKey] = struct{}{}
+			}
+			if err := validateListenAddress(topic.ListenAddress); err != nil {
+				issues = append(issues, fmt.Sprintf("tenant %q topic %q listenAddress is invalid: %v", tenantName, topicName, err))
 			}
 			if err := validateReplicas(topic.Replicas); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: %v", tenantName, topicName, err))
@@ -953,6 +957,10 @@ func normalize(spec Specification) Specification {
 		normalized.Tenants[i].Name = strings.TrimSpace(normalized.Tenants[i].Name)
 		for j := range normalized.Tenants[i].Topics {
 			normalized.Tenants[i].Topics[j].Name = strings.TrimSpace(normalized.Tenants[i].Topics[j].Name)
+			normalized.Tenants[i].Topics[j].ListenAddress = strings.TrimSpace(normalized.Tenants[i].Topics[j].ListenAddress)
+			if normalized.Tenants[i].Topics[j].ListenAddress == "" {
+				normalized.Tenants[i].Topics[j].ListenAddress = normalized.ControlPlane.DefaultListenAddress
+			}
 			if normalized.Tenants[i].Topics[j].Replicas == 0 {
 				normalized.Tenants[i].Topics[j].Replicas = normalized.ControlPlane.Replicas
 			}

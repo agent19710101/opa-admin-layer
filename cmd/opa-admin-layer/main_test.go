@@ -642,3 +642,51 @@ func TestRunRenderOmitsServiceAccountArtifactForSharedBindings(t *testing.T) {
 		}
 	}
 }
+
+func TestRunRenderWritesTopicListenAddressOverride(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "defaultListenAddress": ":8181"
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing",
+          "listenAddress": "127.0.0.1:8282"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))
+	if err != nil {
+		t.Fatalf("read deployment: %v", err)
+	}
+	deployment := string(deploymentBytes)
+	if !strings.Contains(deployment, "containerPort: 8282") || !strings.Contains(deployment, "--addr=127.0.0.1:8282") {
+		t.Fatalf("expected deployment to use topic listenAddress override, got %s", deployment)
+	}
+
+	serviceBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "service.yaml"))
+	if err != nil {
+		t.Fatalf("read service: %v", err)
+	}
+	service := string(serviceBytes)
+	if !strings.Contains(service, "port: 8282") || !strings.Contains(service, "targetPort: 8282") {
+		t.Fatalf("expected service to use topic listenAddress override, got %s", service)
+	}
+}

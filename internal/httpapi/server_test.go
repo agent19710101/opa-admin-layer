@@ -873,3 +873,42 @@ func TestPlanEndpointRendersAutoscalingBehavior(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEndpointRejectsInvalidTopicListenAddress(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","listenAddress":"localhost"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`listenAddress is invalid`)) {
+		t.Fatalf("expected invalid topic listenAddress error, got %s", rec.Body.String())
+	}
+}
+
+func TestPlanEndpointRendersTopicListenAddressOverride(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","defaultListenAddress":":8181"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","listenAddress":"127.0.0.1:8282"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`"listenAddress":"127.0.0.1:8282"`),
+		[]byte(`containerPort: 8282`),
+		[]byte(`targetPort: 8282`),
+		[]byte(`--addr=127.0.0.1:8282`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected topic listenAddress override output %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
