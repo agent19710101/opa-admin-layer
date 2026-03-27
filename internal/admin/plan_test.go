@@ -1613,16 +1613,47 @@ func TestBuildPlanMergesTopicServiceAccountNameOverSharedDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildPlan returned error: %v", err)
 	}
-	billingDeployment := plan.Tenants[0].Topics[0].DeploymentManifestYAML
+	billingTopic := plan.Tenants[0].Topics[0]
+	billingDeployment := billingTopic.DeploymentManifestYAML
 	if !strings.Contains(billingDeployment, "serviceAccountName: billing-opa") {
 		t.Fatalf("expected topic serviceAccountName override in billing deployment, got %q", billingDeployment)
 	}
 	if strings.Contains(billingDeployment, "serviceAccountName: opa-shared") {
 		t.Fatalf("expected topic serviceAccountName override to replace shared value, got %q", billingDeployment)
 	}
-	supportDeployment := plan.Tenants[0].Topics[1].DeploymentManifestYAML
+	if !strings.Contains(billingTopic.ServiceAccountManifestYAML, "kind: ServiceAccount") || !strings.Contains(billingTopic.ServiceAccountManifestYAML, "name: billing-opa") {
+		t.Fatalf("expected billing topic to render topic-scoped service account manifest, got %q", billingTopic.ServiceAccountManifestYAML)
+	}
+	supportTopic := plan.Tenants[0].Topics[1]
+	supportDeployment := supportTopic.DeploymentManifestYAML
 	if !strings.Contains(supportDeployment, "serviceAccountName: opa-shared") {
 		t.Fatalf("expected support deployment to inherit shared serviceAccountName, got %q", supportDeployment)
+	}
+	if !strings.Contains(supportTopic.ServiceAccountManifestYAML, "name: opa-shared") {
+		t.Fatalf("expected support topic to render inherited shared service account manifest, got %q", supportTopic.ServiceAccountManifestYAML)
+	}
+}
+
+func TestBuildPlanOmitsServiceAccountManifestByDefault(t *testing.T) {
+	spec := Specification{
+		Name:         "demo",
+		ControlPlane: ControlPlane{BaseServiceURL: "https://control.example.com"},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	topic := plan.Tenants[0].Topics[0]
+	if topic.ServiceAccountManifestYAML != "" {
+		t.Fatalf("expected service account manifest to be omitted by default, got %q", topic.ServiceAccountManifestYAML)
+	}
+	if strings.Contains(topic.DeploymentManifestYAML, "serviceAccountName:") {
+		t.Fatalf("expected deployment manifest to omit serviceAccountName by default, got %q", topic.DeploymentManifestYAML)
 	}
 }
 

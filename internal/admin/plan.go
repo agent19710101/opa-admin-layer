@@ -23,17 +23,18 @@ type TenantPlan struct {
 }
 
 type TopicPlan struct {
-	Name                   string            `json:"name"`
-	BundleURL              string            `json:"bundleURL"`
-	DecisionPath           string            `json:"decisionPath"`
-	ListenAddress          string            `json:"listenAddress"`
-	Namespace              string            `json:"namespace,omitempty"`
-	Labels                 map[string]string `json:"labels,omitempty"`
-	OPAConfigYAML          string            `json:"opaConfigYAML"`
-	ConfigMapManifestYAML  string            `json:"configMapManifestYAML"`
-	DeploymentManifestYAML string            `json:"deploymentManifestYAML"`
-	ServiceManifestYAML    string            `json:"serviceManifestYAML"`
-	HPAManifestYAML        string            `json:"hpaManifestYAML,omitempty"`
+	Name                       string            `json:"name"`
+	BundleURL                  string            `json:"bundleURL"`
+	DecisionPath               string            `json:"decisionPath"`
+	ListenAddress              string            `json:"listenAddress"`
+	Namespace                  string            `json:"namespace,omitempty"`
+	Labels                     map[string]string `json:"labels,omitempty"`
+	OPAConfigYAML              string            `json:"opaConfigYAML"`
+	ConfigMapManifestYAML      string            `json:"configMapManifestYAML"`
+	ServiceAccountManifestYAML string            `json:"serviceAccountManifestYAML,omitempty"`
+	DeploymentManifestYAML     string            `json:"deploymentManifestYAML"`
+	ServiceManifestYAML        string            `json:"serviceManifestYAML"`
+	HPAManifestYAML            string            `json:"hpaManifestYAML,omitempty"`
 }
 
 func BuildPlan(spec Specification) (Plan, error) {
@@ -119,18 +120,23 @@ func BuildPlan(spec Specification) (Plan, error) {
 			if effectiveAutoscaling != nil {
 				hpaManifestYAML = renderHPAYAML(workloadName, normalized.ControlPlane.Namespace, effectiveAutoscaling)
 			}
+			var serviceAccountManifestYAML string
+			if effectiveServiceAccountName != "" {
+				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace)
+			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
-				Name:                   topic.Name,
-				BundleURL:              bundleURL,
-				DecisionPath:           topic.DecisionPath,
-				ListenAddress:          normalized.ControlPlane.DefaultListenAddress,
-				Namespace:              normalized.ControlPlane.Namespace,
-				Labels:                 topic.Labels,
-				OPAConfigYAML:          opaConfigYAML,
-				ConfigMapManifestYAML:  renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
-				DeploymentManifestYAML: renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
-				ServiceManifestYAML:    renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
-				HPAManifestYAML:        hpaManifestYAML,
+				Name:                       topic.Name,
+				BundleURL:                  bundleURL,
+				DecisionPath:               topic.DecisionPath,
+				ListenAddress:              normalized.ControlPlane.DefaultListenAddress,
+				Namespace:                  normalized.ControlPlane.Namespace,
+				Labels:                     topic.Labels,
+				OPAConfigYAML:              opaConfigYAML,
+				ConfigMapManifestYAML:      renderConfigMapYAML(configMapName, normalized.ControlPlane.Namespace, opaConfigYAML, renderedConfigMapLabels, effectiveConfigMapAnnotations),
+				ServiceAccountManifestYAML: serviceAccountManifestYAML,
+				DeploymentManifestYAML:     renderDeploymentYAML(workloadName, normalized.ControlPlane.Namespace, effectiveReplicas, normalized.ControlPlane.DefaultListenAddress, listenPort, normalized.ControlPlane.OPAImage, effectiveImagePullPolicy, configMapName, renderedDeploymentLabels, effectiveDeploymentAnnotations, effectivePodAnnotations, renderedPodLabels, effectiveServiceAccountName, effectiveAutomountServiceAccountToken, effectiveResources),
+				ServiceManifestYAML:        renderServiceYAML(serviceName(normalized.Name, tenant.Name, topic.Name), normalized.ControlPlane.Namespace, workloadName, effectiveServiceType, effectiveExternalTrafficPolicy, effectiveInternalTrafficPolicy, effectiveSessionAffinity, listenPort, renderedServiceLabels, effectiveServiceAnnotations),
+				HPAManifestYAML:            hpaManifestYAML,
 			})
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
@@ -161,6 +167,14 @@ metadata:
   opa-config.yaml: |
     %s
 `, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), indentedConfig)
+}
+
+func renderServiceAccountYAML(name, namespace string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: %s
+%s`, name, renderNamespaceSection(namespace, 2))
 }
 
 func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, imagePullPolicy, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, serviceAccountName string, automountServiceAccountToken *bool, resources ResourceRequirements) string {

@@ -132,6 +132,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared `controlPlane.podAnnotations` plus topic-level overrides so rendered OPA pod templates can carry mesh, tracing, or sidecar-injection metadata without downstream patching
 - optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.serviceAccountName` plus topic-level overrides so rendered OPA Deployments can bind to explicit Kubernetes workload identities without downstream patches
+- rendered `ServiceAccount` YAML whenever a topic resolves a non-empty effective `serviceAccountName`, keeping exported workload bundles self-contained for the common service-account provisioning path
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express `Always`, `IfNotPresent`, or `Never` image pull behavior without downstream patches
 - optional shared `controlPlane.automountServiceAccountToken` plus topic-level overrides so rendered OPA Deployments can explicitly keep or disable service-account token projection without downstream patches
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
@@ -149,6 +150,7 @@ When `render` is called with `-outdir`, it also materializes:
 - `plan.json` at the output root
 - `<tenant>/<topic>/opa-config.yaml`
 - `<tenant>/<topic>/configmap.yaml`
+- `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured
 - `<tenant>/<topic>/deployment.yaml`
 - `<tenant>/<topic>/service.yaml`
 - `<tenant>/<topic>/hpa.yaml` when autoscaling is configured

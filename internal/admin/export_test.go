@@ -15,12 +15,13 @@ func TestWritePlanTree(t *testing.T) {
 		Tenants: []TenantPlan{{
 			Name: "tenant-a",
 			Topics: []TopicPlan{{
-				Name:                   "billing",
-				OPAConfigYAML:          "services:\n  controlplane:\n",
-				ConfigMapManifestYAML:  "apiVersion: v1\nkind: ConfigMap\n",
-				DeploymentManifestYAML: "apiVersion: apps/v1\nkind: Deployment\n",
-				ServiceManifestYAML:    "apiVersion: v1\nkind: Service\n",
-				HPAManifestYAML:        "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\n",
+				Name:                       "billing",
+				OPAConfigYAML:              "services:\n  controlplane:\n",
+				ConfigMapManifestYAML:      "apiVersion: v1\nkind: ConfigMap\n",
+				ServiceAccountManifestYAML: "apiVersion: v1\nkind: ServiceAccount\n",
+				DeploymentManifestYAML:     "apiVersion: apps/v1\nkind: Deployment\n",
+				ServiceManifestYAML:        "apiVersion: v1\nkind: Service\n",
+				HPAManifestYAML:            "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\n",
 			}},
 		}},
 	}
@@ -52,6 +53,14 @@ func TestWritePlanTree(t *testing.T) {
 	}
 	if string(configMap) != plan.Tenants[0].Topics[0].ConfigMapManifestYAML {
 		t.Fatalf("configmap.yaml mismatch: got %q want %q", string(configMap), plan.Tenants[0].Topics[0].ConfigMapManifestYAML)
+	}
+
+	serviceAccount, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "serviceaccount.yaml"))
+	if err != nil {
+		t.Fatalf("read serviceaccount.yaml: %v", err)
+	}
+	if string(serviceAccount) != plan.Tenants[0].Topics[0].ServiceAccountManifestYAML {
+		t.Fatalf("serviceaccount.yaml mismatch: got %q want %q", string(serviceAccount), plan.Tenants[0].Topics[0].ServiceAccountManifestYAML)
 	}
 
 	deployment, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))

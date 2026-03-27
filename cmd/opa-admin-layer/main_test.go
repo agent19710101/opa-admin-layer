@@ -16,6 +16,7 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
     "configMapAnnotations": {
       "reloader.stakater.com/match": "true"
     },
+    "serviceAccountName": "opa-shared",
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -54,6 +55,7 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		filepath.Join(outDir, "plan.json"),
 		filepath.Join(outDir, "tenant-a", "billing", "opa-config.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "configmap.yaml"),
+		filepath.Join(outDir, "tenant-a", "billing", "serviceaccount.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"),
 		filepath.Join(outDir, "tenant-a", "billing", "service.yaml"),
 	} {
@@ -69,6 +71,15 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 	configMap := string(configMapBytes)
 	if !strings.Contains(configMap, `reloader.stakater.com/match: "true"`) {
 		t.Fatalf("expected shared configMap annotation in rendered configmap, got %s", configMap)
+	}
+
+	serviceAccountBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "serviceaccount.yaml"))
+	if err != nil {
+		t.Fatalf("read serviceaccount: %v", err)
+	}
+	serviceAccount := string(serviceAccountBytes)
+	if !strings.Contains(serviceAccount, "kind: ServiceAccount") || !strings.Contains(serviceAccount, "name: opa-shared") {
+		t.Fatalf("expected rendered service account manifest, got %s", serviceAccount)
 	}
 
 	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))

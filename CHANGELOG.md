@@ -11,6 +11,7 @@
 - add shared/topic `configMapAnnotations` support for rendered ConfigMap metadata with inherited annotation merging and Kubernetes annotation-key validation
 - add shared/topic `configMapLabels` support for rendered ConfigMap metadata with inherited label merging and selector-safe built-in label protection
 - add shared/topic `podLabels` support for rendered Deployment pod templates with selector-safe inherited label merging
+- render `ServiceAccount` manifests and `serviceaccount.yaml` artifacts whenever workloads resolve an explicit effective `serviceAccountName`
 - add shared/topic `serviceAccountName` support for rendered Deployment workload identity binding
 - add shared/topic `automountServiceAccountToken` support for rendered Deployment service-account token projection control
 
