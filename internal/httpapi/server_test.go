@@ -634,9 +634,31 @@ func TestValidateEndpointRejectsInvalidServiceAccountName(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointRejectsInvalidServiceAccountAnnotations(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountAnnotations":{"Example.com/topic":"true"},"removeServiceAccountAnnotations":["bad key"]}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`controlPlane.serviceAccountAnnotations key`),
+		[]byte(`serviceAccountAnnotations key \"Example.com/topic\" is invalid`),
+		[]byte(`removeServiceAccountAnnotations entry \"bad key\" is invalid`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected invalid serviceAccountAnnotations error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
 func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","automountServiceAccountToken":false},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","serviceAccountAnnotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::123456789012:role/shared-opa"},"automountServiceAccountToken":false},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -645,11 +667,15 @@ func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte(`serviceAccountName: opa-shared`)) {
-		t.Fatalf("expected rendered serviceAccountName in response, got %s", rec.Body.String())
-	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte(`automountServiceAccountToken: false`)) {
-		t.Fatalf("expected rendered automountServiceAccountToken in response, got %s", rec.Body.String())
+	for _, expected := range [][]byte{
+		[]byte(`serviceAccountName: opa-shared`),
+		[]byte(`eks.amazonaws.com/role-arn`),
+		[]byte(`arn:aws:iam::123456789012:role/shared-opa`),
+		[]byte(`automountServiceAccountToken: false`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected rendered serviceAccount settings to contain %q, got %s", expected, rec.Body.String())
+		}
 	}
 }
 

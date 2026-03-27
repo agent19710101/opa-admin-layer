@@ -82,6 +82,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			if topic.ServiceAccountName != "" {
 				effectiveServiceAccountName = topic.ServiceAccountName
 			}
+			effectiveServiceAccountAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.ServiceAccountAnnotations, topic.ServiceAccountAnnotations, topic.RemoveServiceAccountAnnotations)
 			effectiveAutomountServiceAccountToken := normalized.ControlPlane.AutomountServiceAccountToken
 			if topic.AutomountServiceAccountToken != nil {
 				effectiveAutomountServiceAccountToken = topic.AutomountServiceAccountToken
@@ -122,7 +123,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			}
 			var serviceAccountManifestYAML string
 			if effectiveServiceAccountName != "" {
-				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace)
+				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace, effectiveServiceAccountAnnotations)
 			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                       topic.Name,
@@ -169,12 +170,12 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderServiceAccountYAML(name, namespace string) string {
+func renderServiceAccountYAML(name, namespace string, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: %s
-%s`, name, renderNamespaceSection(namespace, 2))
+%s%s`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2))
 }
 
 func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, imagePullPolicy, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, serviceAccountName string, automountServiceAccountToken *bool, resources ResourceRequirements) string {

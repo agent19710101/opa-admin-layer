@@ -50,6 +50,7 @@ type ControlPlane struct {
 	PodAnnotations               map[string]string    `json:"podAnnotations" yaml:"podAnnotations"`
 	PodLabels                    map[string]string    `json:"podLabels" yaml:"podLabels"`
 	ServiceAccountName           string               `json:"serviceAccountName" yaml:"serviceAccountName"`
+	ServiceAccountAnnotations    map[string]string    `json:"serviceAccountAnnotations" yaml:"serviceAccountAnnotations"`
 	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken" yaml:"automountServiceAccountToken"`
 	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
 	InternalTrafficPolicy        string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
@@ -91,36 +92,38 @@ type Tenant struct {
 }
 
 type Topic struct {
-	Name                         string               `json:"name" yaml:"name"`
-	BundleResource               string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
-	DecisionPath                 string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
-	Labels                       map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Replicas                     int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
-	ImagePullPolicy              string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
-	ServiceType                  string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
-	ServiceAnnotations           map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
-	RemoveServiceAnnotations     []string             `json:"removeServiceAnnotations,omitempty" yaml:"removeServiceAnnotations,omitempty"`
-	ServiceLabels                map[string]string    `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
-	RemoveServiceLabels          []string             `json:"removeServiceLabels,omitempty" yaml:"removeServiceLabels,omitempty"`
-	ConfigMapAnnotations         map[string]string    `json:"configMapAnnotations,omitempty" yaml:"configMapAnnotations,omitempty"`
-	RemoveConfigMapAnnotations   []string             `json:"removeConfigMapAnnotations,omitempty" yaml:"removeConfigMapAnnotations,omitempty"`
-	ConfigMapLabels              map[string]string    `json:"configMapLabels,omitempty" yaml:"configMapLabels,omitempty"`
-	RemoveConfigMapLabels        []string             `json:"removeConfigMapLabels,omitempty" yaml:"removeConfigMapLabels,omitempty"`
-	DeploymentAnnotations        map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
-	RemoveDeploymentAnnotations  []string             `json:"removeDeploymentAnnotations,omitempty" yaml:"removeDeploymentAnnotations,omitempty"`
-	DeploymentLabels             map[string]string    `json:"deploymentLabels,omitempty" yaml:"deploymentLabels,omitempty"`
-	RemoveDeploymentLabels       []string             `json:"removeDeploymentLabels,omitempty" yaml:"removeDeploymentLabels,omitempty"`
-	PodAnnotations               map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
-	RemovePodAnnotations         []string             `json:"removePodAnnotations,omitempty" yaml:"removePodAnnotations,omitempty"`
-	PodLabels                    map[string]string    `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
-	RemovePodLabels              []string             `json:"removePodLabels,omitempty" yaml:"removePodLabels,omitempty"`
-	ServiceAccountName           string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
-	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
-	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy        string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
-	SessionAffinity              string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
-	OPAResources                 ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
-	Autoscaling                  *Autoscaling         `json:"autoscaling,omitempty" yaml:"autoscaling,omitempty"`
+	Name                            string               `json:"name" yaml:"name"`
+	BundleResource                  string               `json:"bundleResource,omitempty" yaml:"bundleResource,omitempty"`
+	DecisionPath                    string               `json:"decisionPath,omitempty" yaml:"decisionPath,omitempty"`
+	Labels                          map[string]string    `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Replicas                        int                  `json:"replicas,omitempty" yaml:"replicas,omitempty"`
+	ImagePullPolicy                 string               `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
+	ServiceType                     string               `json:"serviceType,omitempty" yaml:"serviceType,omitempty"`
+	ServiceAnnotations              map[string]string    `json:"serviceAnnotations,omitempty" yaml:"serviceAnnotations,omitempty"`
+	RemoveServiceAnnotations        []string             `json:"removeServiceAnnotations,omitempty" yaml:"removeServiceAnnotations,omitempty"`
+	ServiceLabels                   map[string]string    `json:"serviceLabels,omitempty" yaml:"serviceLabels,omitempty"`
+	RemoveServiceLabels             []string             `json:"removeServiceLabels,omitempty" yaml:"removeServiceLabels,omitempty"`
+	ConfigMapAnnotations            map[string]string    `json:"configMapAnnotations,omitempty" yaml:"configMapAnnotations,omitempty"`
+	RemoveConfigMapAnnotations      []string             `json:"removeConfigMapAnnotations,omitempty" yaml:"removeConfigMapAnnotations,omitempty"`
+	ConfigMapLabels                 map[string]string    `json:"configMapLabels,omitempty" yaml:"configMapLabels,omitempty"`
+	RemoveConfigMapLabels           []string             `json:"removeConfigMapLabels,omitempty" yaml:"removeConfigMapLabels,omitempty"`
+	DeploymentAnnotations           map[string]string    `json:"deploymentAnnotations,omitempty" yaml:"deploymentAnnotations,omitempty"`
+	RemoveDeploymentAnnotations     []string             `json:"removeDeploymentAnnotations,omitempty" yaml:"removeDeploymentAnnotations,omitempty"`
+	DeploymentLabels                map[string]string    `json:"deploymentLabels,omitempty" yaml:"deploymentLabels,omitempty"`
+	RemoveDeploymentLabels          []string             `json:"removeDeploymentLabels,omitempty" yaml:"removeDeploymentLabels,omitempty"`
+	PodAnnotations                  map[string]string    `json:"podAnnotations,omitempty" yaml:"podAnnotations,omitempty"`
+	RemovePodAnnotations            []string             `json:"removePodAnnotations,omitempty" yaml:"removePodAnnotations,omitempty"`
+	PodLabels                       map[string]string    `json:"podLabels,omitempty" yaml:"podLabels,omitempty"`
+	RemovePodLabels                 []string             `json:"removePodLabels,omitempty" yaml:"removePodLabels,omitempty"`
+	ServiceAccountName              string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
+	ServiceAccountAnnotations       map[string]string    `json:"serviceAccountAnnotations,omitempty" yaml:"serviceAccountAnnotations,omitempty"`
+	RemoveServiceAccountAnnotations []string             `json:"removeServiceAccountAnnotations,omitempty" yaml:"removeServiceAccountAnnotations,omitempty"`
+	AutomountServiceAccountToken    *bool                `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
+	ExternalTrafficPolicy           string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy           string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
+	SessionAffinity                 string               `json:"sessionAffinity,omitempty" yaml:"sessionAffinity,omitempty"`
+	OPAResources                    ResourceRequirements `json:"opaResources,omitempty" yaml:"opaResources,omitempty"`
+	Autoscaling                     *Autoscaling         `json:"autoscaling,omitempty" yaml:"autoscaling,omitempty"`
 }
 
 func LoadSpec(path string) (Specification, error) {
@@ -206,6 +209,11 @@ func Validate(spec Specification) []string {
 	}
 	if err := validateServiceAccountName(spec.ControlPlane.ServiceAccountName); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountName is invalid: %v", err))
+	}
+	for annotationKey := range spec.ControlPlane.ServiceAccountAnnotations {
+		if err := validateKubernetesLabelKey(annotationKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountAnnotations key %q is invalid: %v", annotationKey, err))
+		}
 	}
 	issues = append(issues, validateAutoscalingAtPath("controlPlane.autoscaling", spec.ControlPlane.Autoscaling)...)
 	if spec.ControlPlane.Autoscaling != nil && spec.ControlPlane.Replicas != 0 {
@@ -322,6 +330,12 @@ func Validate(spec Specification) []string {
 			if err := validateServiceAccountName(topic.ServiceAccountName); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountName is invalid: %v", tenantName, topicName, err))
 			}
+			for annotationKey := range topic.ServiceAccountAnnotations {
+				if err := validateKubernetesLabelKey(annotationKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountAnnotations key %q is invalid: %v", tenantName, topicName, annotationKey, err))
+				}
+			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeServiceAccountAnnotations", tenantName, topicName), topic.RemoveServiceAccountAnnotations)...)
 			issues = append(issues, validateAutoscalingAtPath(fmt.Sprintf("tenant %q topic %q autoscaling", tenantName, topicName), topic.Autoscaling)...)
 			if topic.Autoscaling != nil && topic.Replicas != 0 {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: cannot be set when autoscaling is configured", tenantName, topicName))

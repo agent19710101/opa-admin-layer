@@ -38,6 +38,10 @@
       "example.com/team": "platform"
     },
     "serviceAccountName": "opa-shared",
+    "serviceAccountAnnotations": {
+      "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/shared-opa",
+      "example.com/source": "shared"
+    },
     "imagePullPolicy": "IfNotPresent",
     "automountServiceAccountToken": false,
     "opaResources": {
@@ -101,6 +105,13 @@
             "example.com/team": "payments"
           },
           "serviceAccountName": "billing-opa",
+          "serviceAccountAnnotations": {
+            "example.com/source": "billing",
+            "example.com/team": "payments"
+          },
+          "removeServiceAccountAnnotations": [
+            "eks.amazonaws.com/role-arn"
+          ],
           "imagePullPolicy": "Always",
           "automountServiceAccountToken": true,
           "opaResources": {

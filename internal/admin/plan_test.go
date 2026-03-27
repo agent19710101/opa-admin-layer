@@ -1657,6 +1657,59 @@ func TestBuildPlanOmitsServiceAccountManifestByDefault(t *testing.T) {
 	}
 }
 
+func TestBuildPlanMergesTopicServiceAccountAnnotationsOverSharedDefault(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+			ServiceAccountAnnotations: map[string]string{
+				"eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/shared-opa",
+				"example.com/source":         "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				ServiceAccountAnnotations: map[string]string{
+					"example.com/source": "billing",
+					"example.com/team":   "payments",
+				},
+				RemoveServiceAccountAnnotations: []string{"eks.amazonaws.com/role-arn"},
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingServiceAccount := plan.Tenants[0].Topics[0].ServiceAccountManifestYAML
+	for _, expected := range []string{
+		`example.com/source: "billing"`,
+		`example.com/team: "payments"`,
+	} {
+		if !strings.Contains(billingServiceAccount, expected) {
+			t.Fatalf("expected billing service account manifest to contain %q, got %q", expected, billingServiceAccount)
+		}
+	}
+	if strings.Contains(billingServiceAccount, `eks.amazonaws.com/role-arn`) {
+		t.Fatalf("expected billing service account manifest to remove inherited annotation, got %q", billingServiceAccount)
+	}
+	supportServiceAccount := plan.Tenants[0].Topics[1].ServiceAccountManifestYAML
+	for _, expected := range []string{
+		`eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/shared-opa"`,
+		`example.com/source: "shared"`,
+	} {
+		if !strings.Contains(supportServiceAccount, expected) {
+			t.Fatalf("expected support service account manifest to contain %q, got %q", expected, supportServiceAccount)
+		}
+	}
+}
+
 func TestBuildPlanMergesTopicAutomountServiceAccountTokenOverSharedDefault(t *testing.T) {
 	sharedAutomount := false
 	topicAutomount := true
@@ -1719,6 +1772,40 @@ func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
 	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("expected invalid serviceAccountName issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
+func TestValidateRejectsInvalidServiceAccountAnnotations(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			ServiceAccountAnnotations: map[string]string{
+				"Example.com/shared": "true",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				ServiceAccountAnnotations: map[string]string{
+					"Example.com/topic": "true",
+				},
+				RemoveServiceAccountAnnotations: []string{"bad key"},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	for _, expected := range []string{
+		`controlPlane.serviceAccountAnnotations key "Example.com/shared" is invalid`,
+		`tenant "tenant-a" topic "billing" serviceAccountAnnotations key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" removeServiceAccountAnnotations entry "bad key" is invalid`,
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected invalid serviceAccountAnnotations issue %q, got %#v", expected, issues)
 		}
 	}
 }

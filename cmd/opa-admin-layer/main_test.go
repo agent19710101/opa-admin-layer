@@ -17,6 +17,9 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
       "reloader.stakater.com/match": "true"
     },
     "serviceAccountName": "opa-shared",
+    "serviceAccountAnnotations": {
+      "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/shared-opa"
+    },
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -78,8 +81,14 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		t.Fatalf("read serviceaccount: %v", err)
 	}
 	serviceAccount := string(serviceAccountBytes)
-	if !strings.Contains(serviceAccount, "kind: ServiceAccount") || !strings.Contains(serviceAccount, "name: opa-shared") {
-		t.Fatalf("expected rendered service account manifest, got %s", serviceAccount)
+	for _, expected := range []string{
+		"kind: ServiceAccount",
+		"name: opa-shared",
+		`eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/shared-opa"`,
+	} {
+		if !strings.Contains(serviceAccount, expected) {
+			t.Fatalf("expected rendered service account manifest to contain %q, got %s", expected, serviceAccount)
+		}
 	}
 
 	deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "deployment.yaml"))

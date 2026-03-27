@@ -5,4 +5,4 @@
 - Kubernetes deployment YAML is a useful first deployment target because the research pack emphasizes sidecar patterns.
 - GitHub repo creation and push can proceed automatically because local git/GitHub actions do not require confirmation in this workspace.
 - OpenSpec CLI is not required if the repository mirrors the expected structure manually.
-- The smallest useful next workload-identity slice after deployment-level `serviceAccountName` binding is rendering the matching `ServiceAccount` object, because it closes a common provisioning gap without taking on RBAC generation yet.
+- The next smallest useful workload-identity slice after rendered `ServiceAccount` objects is ServiceAccount annotations, because common IAM/workload-identity integrations depend on annotations while RBAC and broader ServiceAccount customization can still remain out of scope.

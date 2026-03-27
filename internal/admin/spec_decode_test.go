@@ -28,6 +28,8 @@ controlPlane:
   podLabels:
     example.com/workload-class: shared
   serviceAccountName: opa-shared
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/shared-opa
   automountServiceAccountToken: false
 tenants:
   - name: tenant-a
@@ -35,6 +37,10 @@ tenants:
       - name: billing
         replicas: 5
         serviceAccountName: billing-opa
+        serviceAccountAnnotations:
+          eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/billing-opa
+        removeServiceAccountAnnotations:
+          - eks.amazonaws.com/role-arn
         automountServiceAccountToken: true
         serviceLabels:
           example.com/service-scope: topic
@@ -90,6 +96,9 @@ tenants:
 	if spec.ControlPlane.ServiceAccountName != "opa-shared" {
 		t.Fatalf("expected shared serviceAccountName to decode, got %q", spec.ControlPlane.ServiceAccountName)
 	}
+	if got := spec.ControlPlane.ServiceAccountAnnotations["eks.amazonaws.com/role-arn"]; got != "arn:aws:iam::123456789012:role/shared-opa" {
+		t.Fatalf("expected shared serviceAccountAnnotations to decode, got %q", got)
+	}
 	if spec.ControlPlane.AutomountServiceAccountToken == nil || *spec.ControlPlane.AutomountServiceAccountToken {
 		t.Fatalf("expected shared automountServiceAccountToken=false to decode, got %#v", spec.ControlPlane.AutomountServiceAccountToken)
 	}
@@ -101,6 +110,12 @@ tenants:
 	}
 	if spec.Tenants[0].Topics[0].ServiceAccountName != "billing-opa" {
 		t.Fatalf("expected topic serviceAccountName to decode, got %q", spec.Tenants[0].Topics[0].ServiceAccountName)
+	}
+	if got := spec.Tenants[0].Topics[0].ServiceAccountAnnotations["eks.amazonaws.com/role-arn"]; got != "arn:aws:iam::123456789012:role/billing-opa" {
+		t.Fatalf("expected topic serviceAccountAnnotations to decode, got %q", got)
+	}
+	if got := spec.Tenants[0].Topics[0].RemoveServiceAccountAnnotations; !reflect.DeepEqual(got, []string{"eks.amazonaws.com/role-arn"}) {
+		t.Fatalf("expected topic removeServiceAccountAnnotations to decode, got %#v", got)
 	}
 	if spec.Tenants[0].Topics[0].AutomountServiceAccountToken == nil || !*spec.Tenants[0].Topics[0].AutomountServiceAccountToken {
 		t.Fatalf("expected topic automountServiceAccountToken=true to decode, got %#v", spec.Tenants[0].Topics[0].AutomountServiceAccountToken)
