@@ -133,7 +133,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared `controlPlane.podLabels` plus topic-level overrides so rendered OPA pod templates can carry pod-only discovery, policy, or workload-class labels without mutating Services or ConfigMaps
 - optional shared `controlPlane.serviceAccountName` plus topic-level overrides so rendered OPA Deployments can bind to explicit Kubernetes workload identities without downstream patches
 - rendered `ServiceAccount` YAML whenever a topic resolves a non-empty effective `serviceAccountName`, keeping exported workload bundles self-contained for the common service-account provisioning path
-- validation now rejects repeated effective `serviceAccountName` values across topics because rendered `ServiceAccount` ownership is single-topic only today
+- repeated effective `serviceAccountName` values now stay valid as shared/external workload bindings, but those shared names suppress rendered `ServiceAccount` manifests so the plan does not claim conflicting ownership for one Kubernetes object
 - optional shared `controlPlane.serviceAccountAnnotations` plus topic-level overrides and `removeServiceAccountAnnotations` so rendered `ServiceAccount` objects can carry IAM/workload-identity metadata without downstream patches
 - optional shared `controlPlane.serviceAccountLabels` plus topic-level overrides and `removeServiceAccountLabels` so rendered `ServiceAccount` objects can carry ownership, GitOps, and policy labels without downstream patches
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express `Always`, `IfNotPresent`, or `Never` image pull behavior without downstream patches
@@ -153,7 +153,7 @@ When `render` is called with `-outdir`, it also materializes:
 - `plan.json` at the output root
 - `<tenant>/<topic>/opa-config.yaml`
 - `<tenant>/<topic>/configmap.yaml`
-- `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured
+- `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured by exactly one topic; repeated/shared names stay binding-only and omit the rendered artifact
 - `<tenant>/<topic>/deployment.yaml`
 - `<tenant>/<topic>/service.yaml`
 - `<tenant>/<topic>/hpa.yaml` when autoscaling is configured

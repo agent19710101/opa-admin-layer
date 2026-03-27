@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- reject repeated effective `serviceAccountName` values across topics so rendered `ServiceAccount` ownership stays unambiguous
+- allow repeated effective `serviceAccountName` values as shared/external bindings while suppressing conflicting rendered `ServiceAccount` manifests
 - extend HPA behavior support with narrow `selectPolicy` and explicit scaling `policies` rendering plus validation
 - add shared/topic `serviceAccountLabels` plus topic removal support so rendered `ServiceAccount` manifests can carry ownership and GitOps labels without downstream patching
 - add shared/topic `serviceAccountAnnotations` plus topic removal support so rendered `ServiceAccount` manifests can carry workload-identity metadata without downstream patching
