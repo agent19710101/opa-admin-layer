@@ -84,7 +84,15 @@ type AutoscalingBehavior struct {
 }
 
 type AutoscalingBehaviorPolicy struct {
-	StabilizationWindowSeconds *int `json:"stabilizationWindowSeconds,omitempty" yaml:"stabilizationWindowSeconds,omitempty"`
+	StabilizationWindowSeconds *int               `json:"stabilizationWindowSeconds,omitempty" yaml:"stabilizationWindowSeconds,omitempty"`
+	SelectPolicy               string             `json:"selectPolicy,omitempty" yaml:"selectPolicy,omitempty"`
+	Policies                   []HPAScalingPolicy `json:"policies,omitempty" yaml:"policies,omitempty"`
+}
+
+type HPAScalingPolicy struct {
+	Type          string `json:"type,omitempty" yaml:"type,omitempty"`
+	Value         int    `json:"value,omitempty" yaml:"value,omitempty"`
+	PeriodSeconds int    `json:"periodSeconds,omitempty" yaml:"periodSeconds,omitempty"`
 }
 
 type Tenant struct {
@@ -600,16 +608,58 @@ func validateAutoscalingBehaviorPolicyAtPath(path string, value *AutoscalingBeha
 	if value == nil {
 		return nil
 	}
-	if value.StabilizationWindowSeconds == nil {
-		return []string{fmt.Sprintf("%s must set stabilizationWindowSeconds", path)}
+	var issues []string
+	if value.StabilizationWindowSeconds == nil && strings.TrimSpace(value.SelectPolicy) == "" && len(value.Policies) == 0 {
+		issues = append(issues, fmt.Sprintf("%s must set stabilizationWindowSeconds, selectPolicy, and/or policies", path))
+		return issues
 	}
-	if *value.StabilizationWindowSeconds < 0 {
-		return []string{fmt.Sprintf("%s.stabilizationWindowSeconds must be zero or greater", path)}
+	if value.StabilizationWindowSeconds != nil {
+		if *value.StabilizationWindowSeconds < 0 {
+			issues = append(issues, fmt.Sprintf("%s.stabilizationWindowSeconds must be zero or greater", path))
+		}
+		if *value.StabilizationWindowSeconds > 3600 {
+			issues = append(issues, fmt.Sprintf("%s.stabilizationWindowSeconds must be 3600 or fewer", path))
+		}
 	}
-	if *value.StabilizationWindowSeconds > 3600 {
-		return []string{fmt.Sprintf("%s.stabilizationWindowSeconds must be 3600 or fewer", path)}
+	if err := validateAutoscalingSelectPolicy(value.SelectPolicy); err != nil {
+		issues = append(issues, fmt.Sprintf("%s.selectPolicy is invalid: %v", path, err))
 	}
-	return nil
+	for i, policy := range value.Policies {
+		issues = append(issues, validateHPAScalingPolicyAtPath(fmt.Sprintf("%s.policies[%d]", path, i), policy)...)
+	}
+	return issues
+}
+
+func validateAutoscalingSelectPolicy(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	switch trimmed {
+	case "Max", "Min", "Disabled":
+		return nil
+	default:
+		return fmt.Errorf("must be Max, Min, or Disabled")
+	}
+}
+
+func validateHPAScalingPolicyAtPath(path string, value HPAScalingPolicy) []string {
+	var issues []string
+	switch strings.TrimSpace(value.Type) {
+	case "Pods", "Percent":
+		// ok
+	default:
+		issues = append(issues, fmt.Sprintf("%s.type must be Pods or Percent", path))
+	}
+	if value.Value <= 0 {
+		issues = append(issues, fmt.Sprintf("%s.value must be greater than zero", path))
+	}
+	if value.PeriodSeconds <= 0 {
+		issues = append(issues, fmt.Sprintf("%s.periodSeconds must be greater than zero", path))
+	} else if value.PeriodSeconds > 1800 {
+		issues = append(issues, fmt.Sprintf("%s.periodSeconds must be 1800 or fewer", path))
+	}
+	return issues
 }
 
 func validateAutoscalingResourceRequestsAtPath(path string, autoscaling *Autoscaling, resources ResourceRequirements) []string {

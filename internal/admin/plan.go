@@ -295,11 +295,27 @@ func renderHPABehaviorSection(value *AutoscalingBehavior, indent int) string {
 }
 
 func renderHPABehaviorPolicySection(name string, value *AutoscalingBehaviorPolicy, indent int) string {
-	if value == nil || value.StabilizationWindowSeconds == nil {
+	if value == nil {
 		return ""
 	}
+	var b strings.Builder
 	prefix := strings.Repeat(" ", indent)
-	return fmt.Sprintf("%s%s:\n%s  stabilizationWindowSeconds: %d\n", prefix, name, prefix, *value.StabilizationWindowSeconds)
+	fmt.Fprintf(&b, "%s%s:\n", prefix, name)
+	if value.StabilizationWindowSeconds != nil {
+		fmt.Fprintf(&b, "%s  stabilizationWindowSeconds: %d\n", prefix, *value.StabilizationWindowSeconds)
+	}
+	if selectPolicy := strings.TrimSpace(value.SelectPolicy); selectPolicy != "" {
+		fmt.Fprintf(&b, "%s  selectPolicy: %s\n", prefix, selectPolicy)
+	}
+	if len(value.Policies) > 0 {
+		fmt.Fprintf(&b, "%s  policies:\n", prefix)
+		for _, policy := range value.Policies {
+			fmt.Fprintf(&b, "%s    - type: %s\n", prefix, strings.TrimSpace(policy.Type))
+			fmt.Fprintf(&b, "%s      value: %d\n", prefix, policy.Value)
+			fmt.Fprintf(&b, "%s      periodSeconds: %d\n", prefix, policy.PeriodSeconds)
+		}
+	}
+	return b.String()
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {

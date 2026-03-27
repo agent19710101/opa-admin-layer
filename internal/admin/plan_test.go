@@ -2270,6 +2270,14 @@ func TestValidateRejectsInvalidAutoscalingBehavior(t *testing.T) {
 		t.Fatalf("expected invalid autoscaling behavior issue, got %#v", issues)
 	}
 
+	spec.ControlPlane.Autoscaling.Behavior = &AutoscalingBehavior{
+		ScaleUp: &AutoscalingBehaviorPolicy{},
+	}
+	issues = strings.Join(Validate(spec), "\n")
+	if !strings.Contains(issues, "controlPlane.autoscaling.behavior.scaleUp must set stabilizationWindowSeconds, selectPolicy, and/or policies") {
+		t.Fatalf("expected empty autoscaling policy issue, got %#v", issues)
+	}
+
 	window := -1
 	spec.ControlPlane.Autoscaling.Behavior = &AutoscalingBehavior{
 		ScaleUp: &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &window},
@@ -2277,6 +2285,24 @@ func TestValidateRejectsInvalidAutoscalingBehavior(t *testing.T) {
 	issues = strings.Join(Validate(spec), "\n")
 	if !strings.Contains(issues, "controlPlane.autoscaling.behavior.scaleUp.stabilizationWindowSeconds must be zero or greater") {
 		t.Fatalf("expected invalid autoscaling stabilization window issue, got %#v", issues)
+	}
+
+	spec.ControlPlane.Autoscaling.Behavior = &AutoscalingBehavior{
+		ScaleDown: &AutoscalingBehaviorPolicy{
+			SelectPolicy: "median",
+			Policies:     []HPAScalingPolicy{{Type: "Requests", Value: 0, PeriodSeconds: 1900}},
+		},
+	}
+	issues = strings.Join(Validate(spec), "\n")
+	for _, expected := range []string{
+		"controlPlane.autoscaling.behavior.scaleDown.selectPolicy is invalid: must be Max, Min, or Disabled",
+		"controlPlane.autoscaling.behavior.scaleDown.policies[0].type must be Pods or Percent",
+		"controlPlane.autoscaling.behavior.scaleDown.policies[0].value must be greater than zero",
+		"controlPlane.autoscaling.behavior.scaleDown.policies[0].periodSeconds must be 1800 or fewer",
+	} {
+		if !strings.Contains(issues, expected) {
+			t.Fatalf("expected invalid autoscaling behavior policy issue %q, got %#v", expected, issues)
+		}
 	}
 }
 
@@ -2296,8 +2322,16 @@ func TestBuildPlanRendersAutoscalingBehavior(t *testing.T) {
 				TargetCPUUtilizationPercentage:    70,
 				TargetMemoryUtilizationPercentage: 80,
 				Behavior: &AutoscalingBehavior{
-					ScaleUp:   &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &scaleUpWindow},
-					ScaleDown: &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &scaleDownWindow},
+					ScaleUp: &AutoscalingBehaviorPolicy{
+						StabilizationWindowSeconds: &scaleUpWindow,
+						SelectPolicy:               "Max",
+						Policies:                   []HPAScalingPolicy{{Type: "Pods", Value: 2, PeriodSeconds: 60}},
+					},
+					ScaleDown: &AutoscalingBehaviorPolicy{
+						StabilizationWindowSeconds: &scaleDownWindow,
+						SelectPolicy:               "Min",
+						Policies:                   []HPAScalingPolicy{{Type: "Percent", Value: 25, PeriodSeconds: 120}},
+					},
 				},
 			},
 		},
@@ -2318,8 +2352,16 @@ func TestBuildPlanRendersAutoscalingBehavior(t *testing.T) {
 		"behavior:",
 		"scaleUp:",
 		"stabilizationWindowSeconds: 30",
+		"selectPolicy: Max",
+		"- type: Pods",
+		"value: 2",
+		"periodSeconds: 60",
 		"scaleDown:",
 		"stabilizationWindowSeconds: 300",
+		"selectPolicy: Min",
+		"- type: Percent",
+		"value: 25",
+		"periodSeconds: 120",
 	} {
 		if !strings.Contains(hpa, expected) {
 			t.Fatalf("expected autoscaling behavior manifest to contain %q, got %q", expected, hpa)

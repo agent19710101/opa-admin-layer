@@ -780,7 +780,7 @@ func TestPlanEndpointRendersMemoryAutoscalingMetric(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidAutoscalingBehavior(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"behavior":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"behavior":{"scaleDown":{"selectPolicy":"median","policies":[{"type":"Requests","value":0,"periodSeconds":1900}]}}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -789,14 +789,21 @@ func TestValidateEndpointRejectsInvalidAutoscalingBehavior(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte(`autoscaling.behavior must configure scaleUp and/or scaleDown`)) {
-		t.Fatalf("expected autoscaling behavior validation error, got %s", rec.Body.String())
+	for _, expected := range [][]byte{
+		[]byte(`autoscaling.behavior.scaleDown.selectPolicy is invalid: must be Max, Min, or Disabled`),
+		[]byte(`autoscaling.behavior.scaleDown.policies[0].type must be Pods or Percent`),
+		[]byte(`autoscaling.behavior.scaleDown.policies[0].value must be greater than zero`),
+		[]byte(`autoscaling.behavior.scaleDown.policies[0].periodSeconds must be 1800 or fewer`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected autoscaling behavior validation error %q, got %s", expected, rec.Body.String())
+		}
 	}
 }
 
 func TestPlanEndpointRendersAutoscalingBehavior(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m","memory":"256Mi"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"targetMemoryUtilizationPercentage":80,"behavior":{"scaleUp":{"stabilizationWindowSeconds":30},"scaleDown":{"stabilizationWindowSeconds":300}}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m","memory":"256Mi"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"targetMemoryUtilizationPercentage":80,"behavior":{"scaleUp":{"stabilizationWindowSeconds":30,"selectPolicy":"Max","policies":[{"type":"Pods","value":2,"periodSeconds":60}]},"scaleDown":{"stabilizationWindowSeconds":300,"selectPolicy":"Min","policies":[{"type":"Percent","value":25,"periodSeconds":120}]}}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -809,8 +816,16 @@ func TestPlanEndpointRendersAutoscalingBehavior(t *testing.T) {
 		[]byte(`behavior:`),
 		[]byte(`scaleUp:`),
 		[]byte(`stabilizationWindowSeconds: 30`),
+		[]byte(`selectPolicy: Max`),
+		[]byte(`- type: Pods`),
+		[]byte(`value: 2`),
+		[]byte(`periodSeconds: 60`),
 		[]byte(`scaleDown:`),
 		[]byte(`stabilizationWindowSeconds: 300`),
+		[]byte(`selectPolicy: Min`),
+		[]byte(`- type: Percent`),
+		[]byte(`value: 25`),
+		[]byte(`periodSeconds: 120`),
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
 			t.Fatalf("expected autoscaling behavior in plan response %q, got %s", expected, rec.Body.String())

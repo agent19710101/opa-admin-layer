@@ -111,7 +111,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - strict JSON or YAML decoding for CLI and REST input (unknown fields are rejected early in both formats)
 - configurable but pinned OPA image selection via `controlPlane.opaImage`
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express Kubernetes image pull behavior without downstream patches
-- optional shared `controlPlane.autoscaling` plus topic-level overrides so generated workloads can emit Kubernetes HorizontalPodAutoscaler manifests with CPU and/or memory utilization targets and optional scale-up/scale-down stabilization windows without downstream patching, with effective matching `opaResources.requests.cpu` and/or `opaResources.requests.memory` required for configured autoscaling metrics
+- optional shared `controlPlane.autoscaling` plus topic-level overrides so generated workloads can emit Kubernetes HorizontalPodAutoscaler manifests with CPU and/or memory utilization targets and optional scale-up/scale-down stabilization windows, `selectPolicy`, and explicit scaling `policies` without downstream patching, with effective matching `opaResources.requests.cpu` and/or `opaResources.requests.memory` required for configured autoscaling metrics
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL
 - generated OPA config YAML
@@ -287,4 +287,4 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
 
 Topic metadata can also explicitly clear inherited object-scoped keys with removal lists such as `removeServiceLabels`, `removeConfigMapAnnotations`, `removeServiceAccountAnnotations`, `removeServiceAccountLabels`, or `removePodLabels` when one workload needs a shared default to end absent.
 
-Autoscaling can use CPU utilization targets, memory utilization targets, or both. Any autoscaled workload must have effective inherited `opaResources.requests.cpu` and/or `opaResources.requests.memory` values for the metrics it configures.
+Autoscaling can use CPU utilization targets, memory utilization targets, or both. Behavior tuning can also set per-direction stabilization windows, `selectPolicy`, and explicit scaling `policies` with `Pods`/`Percent` step definitions. Any autoscaled workload must have effective inherited `opaResources.requests.cpu` and/or `opaResources.requests.memory` values for the metrics it configures.

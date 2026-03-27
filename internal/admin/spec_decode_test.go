@@ -198,6 +198,13 @@ controlPlane:
     minReplicas: 2
     maxReplicas: 5
     targetCPUUtilizationPercentage: 70
+    behavior:
+      scaleUp:
+        selectPolicy: Max
+        policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 60
 tenants:
   - name: tenant-a
     topics:
@@ -206,6 +213,13 @@ tenants:
           minReplicas: 3
           maxReplicas: 7
           targetCPUUtilizationPercentage: 80
+          behavior:
+            scaleDown:
+              selectPolicy: Min
+              policies:
+                - type: Percent
+                  value: 25
+                  periodSeconds: 120
 `)
 
 	spec, err := DecodeSpec(payload)
@@ -215,7 +229,19 @@ tenants:
 	if spec.ControlPlane.Autoscaling == nil || spec.ControlPlane.Autoscaling.MinReplicas != 2 || spec.ControlPlane.Autoscaling.MaxReplicas != 5 || spec.ControlPlane.Autoscaling.TargetCPUUtilizationPercentage != 70 {
 		t.Fatalf("expected shared autoscaling to decode, got %#v", spec.ControlPlane.Autoscaling)
 	}
+	if spec.ControlPlane.Autoscaling.Behavior == nil || spec.ControlPlane.Autoscaling.Behavior.ScaleUp == nil || spec.ControlPlane.Autoscaling.Behavior.ScaleUp.SelectPolicy != "Max" {
+		t.Fatalf("expected shared autoscaling behavior to decode, got %#v", spec.ControlPlane.Autoscaling)
+	}
+	if got := spec.ControlPlane.Autoscaling.Behavior.ScaleUp.Policies; !reflect.DeepEqual(got, []HPAScalingPolicy{{Type: "Pods", Value: 2, PeriodSeconds: 60}}) {
+		t.Fatalf("expected shared autoscaling policies to decode, got %#v", got)
+	}
 	if spec.Tenants[0].Topics[0].Autoscaling == nil || spec.Tenants[0].Topics[0].Autoscaling.MinReplicas != 3 || spec.Tenants[0].Topics[0].Autoscaling.MaxReplicas != 7 || spec.Tenants[0].Topics[0].Autoscaling.TargetCPUUtilizationPercentage != 80 {
 		t.Fatalf("expected topic autoscaling to decode, got %#v", spec.Tenants[0].Topics[0].Autoscaling)
+	}
+	if spec.Tenants[0].Topics[0].Autoscaling.Behavior == nil || spec.Tenants[0].Topics[0].Autoscaling.Behavior.ScaleDown == nil || spec.Tenants[0].Topics[0].Autoscaling.Behavior.ScaleDown.SelectPolicy != "Min" {
+		t.Fatalf("expected topic autoscaling behavior to decode, got %#v", spec.Tenants[0].Topics[0].Autoscaling)
+	}
+	if got := spec.Tenants[0].Topics[0].Autoscaling.Behavior.ScaleDown.Policies; !reflect.DeepEqual(got, []HPAScalingPolicy{{Type: "Percent", Value: 25, PeriodSeconds: 120}}) {
+		t.Fatalf("expected topic autoscaling policies to decode, got %#v", got)
 	}
 }
