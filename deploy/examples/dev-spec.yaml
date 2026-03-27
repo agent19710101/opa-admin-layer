@@ -91,6 +91,11 @@ tenants:
           minReplicas: 2
           maxReplicas: 6
           targetCPUUtilizationPercentage: 70
+          behavior:
+            scaleUp:
+              stabilizationWindowSeconds: 30
+            scaleDown:
+              stabilizationWindowSeconds: 300
   - name: tenant-b
     topics:
       - name: catalog

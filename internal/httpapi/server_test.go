@@ -747,3 +747,43 @@ func TestPlanEndpointRendersMemoryAutoscalingMetric(t *testing.T) {
 		t.Fatalf("expected memory-only autoscaling response to omit cpu metric, got %s", rec.Body.String())
 	}
 }
+
+func TestValidateEndpointRejectsInvalidAutoscalingBehavior(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"behavior":{}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`autoscaling.behavior must configure scaleUp and/or scaleDown`)) {
+		t.Fatalf("expected autoscaling behavior validation error, got %s", rec.Body.String())
+	}
+}
+
+func TestPlanEndpointRendersAutoscalingBehavior(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m","memory":"256Mi"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70,"targetMemoryUtilizationPercentage":80,"behavior":{"scaleUp":{"stabilizationWindowSeconds":30},"scaleDown":{"stabilizationWindowSeconds":300}}}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`behavior:`),
+		[]byte(`scaleUp:`),
+		[]byte(`stabilizationWindowSeconds: 30`),
+		[]byte(`scaleDown:`),
+		[]byte(`stabilizationWindowSeconds: 300`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected autoscaling behavior in plan response %q, got %s", expected, rec.Body.String())
+		}
+	}
+}

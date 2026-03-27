@@ -2047,3 +2047,86 @@ func TestBuildPlanRendersCPUAndMemoryAutoscalingMetricsInStableOrder(t *testing.
 		t.Fatalf("expected cpu metric before memory metric, got %q", hpa)
 	}
 }
+
+func TestValidateRejectsInvalidAutoscalingBehavior(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m"},
+			},
+			Autoscaling: &Autoscaling{
+				MinReplicas:                    2,
+				MaxReplicas:                    5,
+				TargetCPUUtilizationPercentage: 70,
+				Behavior:                       &AutoscalingBehavior{},
+			},
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := strings.Join(Validate(spec), "\n")
+	if !strings.Contains(issues, "controlPlane.autoscaling.behavior must configure scaleUp and/or scaleDown") {
+		t.Fatalf("expected invalid autoscaling behavior issue, got %#v", issues)
+	}
+
+	window := -1
+	spec.ControlPlane.Autoscaling.Behavior = &AutoscalingBehavior{
+		ScaleUp: &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &window},
+	}
+	issues = strings.Join(Validate(spec), "\n")
+	if !strings.Contains(issues, "controlPlane.autoscaling.behavior.scaleUp.stabilizationWindowSeconds must be zero or greater") {
+		t.Fatalf("expected invalid autoscaling stabilization window issue, got %#v", issues)
+	}
+}
+
+func TestBuildPlanRendersAutoscalingBehavior(t *testing.T) {
+	scaleUpWindow := 30
+	scaleDownWindow := 300
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m", Memory: "256Mi"},
+			},
+			Autoscaling: &Autoscaling{
+				MinReplicas:                       2,
+				MaxReplicas:                       6,
+				TargetCPUUtilizationPercentage:    70,
+				TargetMemoryUtilizationPercentage: 80,
+				Behavior: &AutoscalingBehavior{
+					ScaleUp:   &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &scaleUpWindow},
+					ScaleDown: &AutoscalingBehaviorPolicy{StabilizationWindowSeconds: &scaleDownWindow},
+				},
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	hpa := plan.Tenants[0].Topics[0].HPAManifestYAML
+	for _, expected := range []string{
+		"behavior:",
+		"scaleUp:",
+		"stabilizationWindowSeconds: 30",
+		"scaleDown:",
+		"stabilizationWindowSeconds: 300",
+	} {
+		if !strings.Contains(hpa, expected) {
+			t.Fatalf("expected autoscaling behavior manifest to contain %q, got %q", expected, hpa)
+		}
+	}
+}

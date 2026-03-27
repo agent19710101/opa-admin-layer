@@ -259,7 +259,30 @@ metadata:
   minReplicas: %d
   maxReplicas: %d
   metrics:
-%s`, name, renderNamespaceSection(namespace, 2), name, autoscaling.MinReplicas, autoscaling.MaxReplicas, metrics.String())
+%s%s`, name, renderNamespaceSection(namespace, 2), name, autoscaling.MinReplicas, autoscaling.MaxReplicas, metrics.String(), renderHPABehaviorSection(autoscaling.Behavior, 2))
+}
+
+func renderHPABehaviorSection(value *AutoscalingBehavior, indent int) string {
+	if value == nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%sbehavior:\n", strings.Repeat(" ", indent))
+	if rendered := renderHPABehaviorPolicySection("scaleUp", value.ScaleUp, indent+2); rendered != "" {
+		b.WriteString(rendered)
+	}
+	if rendered := renderHPABehaviorPolicySection("scaleDown", value.ScaleDown, indent+2); rendered != "" {
+		b.WriteString(rendered)
+	}
+	return b.String()
+}
+
+func renderHPABehaviorPolicySection(name string, value *AutoscalingBehaviorPolicy, indent int) string {
+	if value == nil || value.StabilizationWindowSeconds == nil {
+		return ""
+	}
+	prefix := strings.Repeat(" ", indent)
+	return fmt.Sprintf("%s%s:\n%s  stabilizationWindowSeconds: %d\n", prefix, name, prefix, *value.StabilizationWindowSeconds)
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {

@@ -69,10 +69,20 @@ type ResourceList struct {
 }
 
 type Autoscaling struct {
-	MinReplicas                       int `json:"minReplicas,omitempty" yaml:"minReplicas,omitempty"`
-	MaxReplicas                       int `json:"maxReplicas,omitempty" yaml:"maxReplicas,omitempty"`
-	TargetCPUUtilizationPercentage    int `json:"targetCPUUtilizationPercentage,omitempty" yaml:"targetCPUUtilizationPercentage,omitempty"`
-	TargetMemoryUtilizationPercentage int `json:"targetMemoryUtilizationPercentage,omitempty" yaml:"targetMemoryUtilizationPercentage,omitempty"`
+	MinReplicas                       int                  `json:"minReplicas,omitempty" yaml:"minReplicas,omitempty"`
+	MaxReplicas                       int                  `json:"maxReplicas,omitempty" yaml:"maxReplicas,omitempty"`
+	TargetCPUUtilizationPercentage    int                  `json:"targetCPUUtilizationPercentage,omitempty" yaml:"targetCPUUtilizationPercentage,omitempty"`
+	TargetMemoryUtilizationPercentage int                  `json:"targetMemoryUtilizationPercentage,omitempty" yaml:"targetMemoryUtilizationPercentage,omitempty"`
+	Behavior                          *AutoscalingBehavior `json:"behavior,omitempty" yaml:"behavior,omitempty"`
+}
+
+type AutoscalingBehavior struct {
+	ScaleUp   *AutoscalingBehaviorPolicy `json:"scaleUp,omitempty" yaml:"scaleUp,omitempty"`
+	ScaleDown *AutoscalingBehaviorPolicy `json:"scaleDown,omitempty" yaml:"scaleDown,omitempty"`
+}
+
+type AutoscalingBehaviorPolicy struct {
+	StabilizationWindowSeconds *int `json:"stabilizationWindowSeconds,omitempty" yaml:"stabilizationWindowSeconds,omitempty"`
 }
 
 type Tenant struct {
@@ -531,10 +541,41 @@ func validateAutoscalingAtPath(path string, value *Autoscaling) []string {
 	if value.TargetMemoryUtilizationPercentage != 0 && (value.TargetMemoryUtilizationPercentage < 1 || value.TargetMemoryUtilizationPercentage > 100) {
 		issues = append(issues, fmt.Sprintf("%s.targetMemoryUtilizationPercentage must be between 1 and 100", path))
 	}
+	issues = append(issues, validateAutoscalingBehaviorAtPath(path+".behavior", value.Behavior)...)
 	if value.MinReplicas > 0 && value.MaxReplicas > 0 && value.MaxReplicas < value.MinReplicas {
 		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than or equal to minReplicas", path))
 	}
 	return issues
+}
+
+func validateAutoscalingBehaviorAtPath(path string, value *AutoscalingBehavior) []string {
+	if value == nil {
+		return nil
+	}
+	var issues []string
+	if value.ScaleUp == nil && value.ScaleDown == nil {
+		issues = append(issues, fmt.Sprintf("%s must configure scaleUp and/or scaleDown", path))
+		return issues
+	}
+	issues = append(issues, validateAutoscalingBehaviorPolicyAtPath(path+".scaleUp", value.ScaleUp)...)
+	issues = append(issues, validateAutoscalingBehaviorPolicyAtPath(path+".scaleDown", value.ScaleDown)...)
+	return issues
+}
+
+func validateAutoscalingBehaviorPolicyAtPath(path string, value *AutoscalingBehaviorPolicy) []string {
+	if value == nil {
+		return nil
+	}
+	if value.StabilizationWindowSeconds == nil {
+		return []string{fmt.Sprintf("%s must set stabilizationWindowSeconds", path)}
+	}
+	if *value.StabilizationWindowSeconds < 0 {
+		return []string{fmt.Sprintf("%s.stabilizationWindowSeconds must be zero or greater", path)}
+	}
+	if *value.StabilizationWindowSeconds > 3600 {
+		return []string{fmt.Sprintf("%s.stabilizationWindowSeconds must be 3600 or fewer", path)}
+	}
+	return nil
 }
 
 func validateAutoscalingResourceRequestsAtPath(path string, autoscaling *Autoscaling, resources ResourceRequirements) []string {
