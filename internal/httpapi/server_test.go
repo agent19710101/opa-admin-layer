@@ -706,3 +706,44 @@ func TestPlanEndpointRendersAutoscalingManifest(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEndpointRejectsAutoscalingWithoutEffectiveMemoryRequest(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetMemoryUtilizationPercentage":75}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`effective autoscaling requires effective opaResources.requests.memory to be set for memory utilization metrics`)) {
+		t.Fatalf("expected autoscaling memory request error, got %s", rec.Body.String())
+	}
+}
+
+func TestPlanEndpointRendersMemoryAutoscalingMetric(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"memory":"256Mi"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetMemoryUtilizationPercentage":80}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`"hpaManifestYAML":`),
+		[]byte(`name: memory`),
+		[]byte(`averageUtilization: 80`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected autoscaling plan response to contain %q, got %s", expected, rec.Body.String())
+		}
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte(`name: cpu`)) {
+		t.Fatalf("expected memory-only autoscaling response to omit cpu metric, got %s", rec.Body.String())
+	}
+}

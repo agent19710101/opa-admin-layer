@@ -1915,3 +1915,135 @@ func TestValidateRejectsConflictingOrInvalidAutoscaling(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateRejectsAutoscalingWithoutEffectiveMemoryRequest(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m"},
+			},
+			Autoscaling: &Autoscaling{
+				MinReplicas:                       2,
+				MaxReplicas:                       5,
+				TargetMemoryUtilizationPercentage: 75,
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	expected := `tenant "tenant-a" topic "billing" effective autoscaling requires effective opaResources.requests.memory to be set for memory utilization metrics`
+	if !strings.Contains(joined, expected) {
+		t.Fatalf("expected autoscaling memory request issue %q, got %#v", expected, issues)
+	}
+}
+
+func TestValidateRejectsAutoscalingWithoutConfiguredMetricTargets(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Autoscaling: &Autoscaling{
+				MinReplicas: 2,
+				MaxReplicas: 5,
+			},
+		},
+		Tenants: []Tenant{{
+			Name:   "tenant-a",
+			Topics: []Topic{{Name: "billing"}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	if !strings.Contains(joined, "controlPlane.autoscaling must set targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage") {
+		t.Fatalf("expected missing autoscaling metrics issue, got %#v", issues)
+	}
+}
+
+func TestBuildPlanRendersMemoryAutoscalingMetric(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{Memory: "256Mi"},
+			},
+			Autoscaling: &Autoscaling{
+				MinReplicas:                       2,
+				MaxReplicas:                       6,
+				TargetMemoryUtilizationPercentage: 80,
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	hpa := plan.Tenants[0].Topics[0].HPAManifestYAML
+	for _, expected := range []string{
+		"kind: HorizontalPodAutoscaler",
+		"name: memory",
+		"averageUtilization: 80",
+	} {
+		if !strings.Contains(hpa, expected) {
+			t.Fatalf("expected memory autoscaling manifest to contain %q, got %q", expected, hpa)
+		}
+	}
+	if strings.Contains(hpa, "name: cpu") {
+		t.Fatalf("expected memory-only autoscaling manifest to omit cpu metric, got %q", hpa)
+	}
+}
+
+func TestBuildPlanRendersCPUAndMemoryAutoscalingMetricsInStableOrder(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m", Memory: "256Mi"},
+			},
+			Autoscaling: &Autoscaling{
+				MinReplicas:                       2,
+				MaxReplicas:                       6,
+				TargetCPUUtilizationPercentage:    70,
+				TargetMemoryUtilizationPercentage: 80,
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	hpa := plan.Tenants[0].Topics[0].HPAManifestYAML
+	cpuIndex := strings.Index(hpa, "name: cpu")
+	memoryIndex := strings.Index(hpa, "name: memory")
+	if cpuIndex == -1 || memoryIndex == -1 {
+		t.Fatalf("expected cpu and memory metrics in autoscaling manifest, got %q", hpa)
+	}
+	if cpuIndex > memoryIndex {
+		t.Fatalf("expected cpu metric before memory metric, got %q", hpa)
+	}
+}

@@ -228,6 +228,25 @@ metadata:
 }
 
 func renderHPAYAML(name, namespace string, autoscaling *Autoscaling) string {
+	var metrics strings.Builder
+	if autoscaling.TargetCPUUtilizationPercentage != 0 {
+		fmt.Fprintf(&metrics, `    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: %d
+`, autoscaling.TargetCPUUtilizationPercentage)
+	}
+	if autoscaling.TargetMemoryUtilizationPercentage != 0 {
+		fmt.Fprintf(&metrics, `    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: %d
+`, autoscaling.TargetMemoryUtilizationPercentage)
+	}
 	return fmt.Sprintf(`apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -240,13 +259,7 @@ metadata:
   minReplicas: %d
   maxReplicas: %d
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: %d
-`, name, renderNamespaceSection(namespace, 2), name, autoscaling.MinReplicas, autoscaling.MaxReplicas, autoscaling.TargetCPUUtilizationPercentage)
+%s`, name, renderNamespaceSection(namespace, 2), name, autoscaling.MinReplicas, autoscaling.MaxReplicas, metrics.String())
 }
 
 func renderResourcesBlock(resources ResourceRequirements, indent int) string {

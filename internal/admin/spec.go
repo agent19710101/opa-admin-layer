@@ -69,9 +69,10 @@ type ResourceList struct {
 }
 
 type Autoscaling struct {
-	MinReplicas                    int `json:"minReplicas,omitempty" yaml:"minReplicas,omitempty"`
-	MaxReplicas                    int `json:"maxReplicas,omitempty" yaml:"maxReplicas,omitempty"`
-	TargetCPUUtilizationPercentage int `json:"targetCPUUtilizationPercentage,omitempty" yaml:"targetCPUUtilizationPercentage,omitempty"`
+	MinReplicas                       int `json:"minReplicas,omitempty" yaml:"minReplicas,omitempty"`
+	MaxReplicas                       int `json:"maxReplicas,omitempty" yaml:"maxReplicas,omitempty"`
+	TargetCPUUtilizationPercentage    int `json:"targetCPUUtilizationPercentage,omitempty" yaml:"targetCPUUtilizationPercentage,omitempty"`
+	TargetMemoryUtilizationPercentage int `json:"targetMemoryUtilizationPercentage,omitempty" yaml:"targetMemoryUtilizationPercentage,omitempty"`
 }
 
 type Tenant struct {
@@ -419,7 +420,7 @@ func Validate(spec Specification) []string {
 			if topic.Autoscaling != nil {
 				effectiveAutoscaling = topic.Autoscaling
 			}
-			issues = append(issues, validateAutoscalingCPURequestAtPath(fmt.Sprintf("tenant %q topic %q effective autoscaling", tenantName, topicName), effectiveAutoscaling, effectiveResources)...)
+			issues = append(issues, validateAutoscalingResourceRequestsAtPath(fmt.Sprintf("tenant %q topic %q effective autoscaling", tenantName, topicName), effectiveAutoscaling, effectiveResources)...)
 			for resourceKind, resourceName := range map[string]string{
 				"deployment": deploymentName(spec.Name, tenantName, topicName),
 				"configmap":  topicConfigMapName(spec.Name, tenantName, topicName),
@@ -521,10 +522,14 @@ func validateAutoscalingAtPath(path string, value *Autoscaling) []string {
 	} else if value.MaxReplicas < 0 {
 		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than zero", path))
 	}
-	if value.TargetCPUUtilizationPercentage == 0 {
+	if value.TargetCPUUtilizationPercentage == 0 && value.TargetMemoryUtilizationPercentage == 0 {
+		issues = append(issues, fmt.Sprintf("%s must set targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage", path))
+	}
+	if value.TargetCPUUtilizationPercentage != 0 && (value.TargetCPUUtilizationPercentage < 1 || value.TargetCPUUtilizationPercentage > 100) {
 		issues = append(issues, fmt.Sprintf("%s.targetCPUUtilizationPercentage must be between 1 and 100", path))
-	} else if value.TargetCPUUtilizationPercentage < 1 || value.TargetCPUUtilizationPercentage > 100 {
-		issues = append(issues, fmt.Sprintf("%s.targetCPUUtilizationPercentage must be between 1 and 100", path))
+	}
+	if value.TargetMemoryUtilizationPercentage != 0 && (value.TargetMemoryUtilizationPercentage < 1 || value.TargetMemoryUtilizationPercentage > 100) {
+		issues = append(issues, fmt.Sprintf("%s.targetMemoryUtilizationPercentage must be between 1 and 100", path))
 	}
 	if value.MinReplicas > 0 && value.MaxReplicas > 0 && value.MaxReplicas < value.MinReplicas {
 		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than or equal to minReplicas", path))
@@ -532,14 +537,22 @@ func validateAutoscalingAtPath(path string, value *Autoscaling) []string {
 	return issues
 }
 
-func validateAutoscalingCPURequestAtPath(path string, autoscaling *Autoscaling, resources ResourceRequirements) []string {
+func validateAutoscalingResourceRequestsAtPath(path string, autoscaling *Autoscaling, resources ResourceRequirements) []string {
 	if autoscaling == nil {
 		return nil
 	}
-	if resources.Requests == nil || strings.TrimSpace(resources.Requests.CPU) == "" {
-		return []string{fmt.Sprintf("%s requires effective opaResources.requests.cpu to be set for CPU utilization metrics", path)}
+	var issues []string
+	if autoscaling.TargetCPUUtilizationPercentage != 0 {
+		if resources.Requests == nil || strings.TrimSpace(resources.Requests.CPU) == "" {
+			issues = append(issues, fmt.Sprintf("%s requires effective opaResources.requests.cpu to be set for CPU utilization metrics", path))
+		}
 	}
-	return nil
+	if autoscaling.TargetMemoryUtilizationPercentage != 0 {
+		if resources.Requests == nil || strings.TrimSpace(resources.Requests.Memory) == "" {
+			issues = append(issues, fmt.Sprintf("%s requires effective opaResources.requests.memory to be set for memory utilization metrics", path))
+		}
+	}
+	return issues
 }
 
 func validateImagePullPolicy(value string) error {

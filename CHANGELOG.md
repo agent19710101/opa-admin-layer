@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- extend autoscaling to support optional memory utilization targets and require effective inherited CPU/memory requests for configured utilization metrics
 - validate autoscaling workloads require an effective `opaResources.requests.cpu` value when using CPU utilization targets
 - add topic-level inherited metadata removal lists so shared Service, ConfigMap, Deployment, and pod annotation/label keys can be cleared back to absent state without downstream patching
 - add shared/topic `serviceLabels` support for rendering Service-only metadata labels with validation and immutable built-in identity keys
