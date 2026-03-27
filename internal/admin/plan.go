@@ -52,6 +52,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 		Topology:    "opa-only",
 		Tenants:     make([]TenantPlan, 0, len(normalized.Tenants)),
 	}
+	sharedServiceAccountBindings := countEffectiveServiceAccounts(normalized)
 	for _, tenant := range normalized.Tenants {
 		tenantPlan := TenantPlan{Name: tenant.Name, Topics: make([]TopicPlan, 0, len(tenant.Topics))}
 		for _, topic := range tenant.Topics {
@@ -124,7 +125,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				hpaManifestYAML = renderHPAYAML(workloadName, normalized.ControlPlane.Namespace, effectiveAutoscaling)
 			}
 			var serviceAccountManifestYAML string
-			if effectiveServiceAccountName != "" {
+			if effectiveServiceAccountName != "" && sharedServiceAccountBindings[strings.ToLower(effectiveServiceAccountName)] <= 1 {
 				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace, renderedServiceAccountLabels, effectiveServiceAccountAnnotations)
 			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
@@ -334,6 +335,24 @@ func renderResourcesBlock(resources ResourceRequirements, indent int) string {
 		b.WriteString(rendered)
 	}
 	return b.String()
+}
+
+func countEffectiveServiceAccounts(spec Specification) map[string]int {
+	counts := map[string]int{}
+	sharedName := strings.TrimSpace(spec.ControlPlane.ServiceAccountName)
+	for _, tenant := range spec.Tenants {
+		for _, topic := range tenant.Topics {
+			effectiveName := sharedName
+			if topicName := strings.TrimSpace(topic.ServiceAccountName); topicName != "" {
+				effectiveName = topicName
+			}
+			if effectiveName == "" {
+				continue
+			}
+			counts[strings.ToLower(effectiveName)]++
+		}
+	}
+	return counts
 }
 
 func renderResourceListBlock(name string, values *ResourceList, indent int) string {

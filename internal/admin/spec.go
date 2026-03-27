@@ -312,11 +312,6 @@ func Validate(spec Specification) []string {
 	if len(spec.Tenants) == 0 {
 		issues = append(issues, "spec.tenants must contain at least one tenant")
 	}
-	type serviceAccountOwner struct {
-		Tenant string
-		Topic  string
-	}
-	seenEffectiveServiceAccounts := map[string]serviceAccountOwner{}
 	for _, tenant := range spec.Tenants {
 		tenantName := strings.TrimSpace(tenant.Name)
 		if tenantName == "" {
@@ -353,18 +348,6 @@ func Validate(spec Specification) []string {
 			}
 			if err := validateServiceAccountName(topic.ServiceAccountName); err != nil {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountName is invalid: %v", tenantName, topicName, err))
-			}
-			effectiveServiceAccountName := strings.TrimSpace(spec.ControlPlane.ServiceAccountName)
-			if strings.TrimSpace(topic.ServiceAccountName) != "" {
-				effectiveServiceAccountName = strings.TrimSpace(topic.ServiceAccountName)
-			}
-			if effectiveServiceAccountName != "" {
-				serviceAccountKey := strings.ToLower(effectiveServiceAccountName)
-				if owner, ok := seenEffectiveServiceAccounts[serviceAccountKey]; ok {
-					issues = append(issues, fmt.Sprintf("tenant %q topic %q effective serviceAccountName %q repeats tenant %q topic %q; repeated rendered ServiceAccount ownership is not supported", tenantName, topicName, effectiveServiceAccountName, owner.Tenant, owner.Topic))
-				} else {
-					seenEffectiveServiceAccounts[serviceAccountKey] = serviceAccountOwner{Tenant: tenantName, Topic: topicName}
-				}
 			}
 			for annotationKey := range topic.ServiceAccountAnnotations {
 				if err := validateKubernetesLabelKey(annotationKey); err != nil {

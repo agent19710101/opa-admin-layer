@@ -1845,7 +1845,7 @@ func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsRepeatedEffectiveServiceAccountName(t *testing.T) {
+func TestValidateAllowsRepeatedEffectiveServiceAccountNameForSharedBindings(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
@@ -1862,11 +1862,40 @@ func TestValidateRejectsRepeatedEffectiveServiceAccountName(t *testing.T) {
 		}},
 	}
 
-	issues := Validate(spec)
-	joined := strings.Join(issues, "\n")
-	expected := `tenant "tenant-a" topic "support" effective serviceAccountName "opa-shared" repeats tenant "tenant-a" topic "billing"`
-	if !strings.Contains(joined, expected) {
-		t.Fatalf("expected repeated serviceAccountName issue %q, got %#v", expected, issues)
+	issues := strings.Join(Validate(spec), "\n")
+	if strings.Contains(issues, `effective serviceAccountName`) {
+		t.Fatalf("expected repeated serviceAccountName values to be allowed for shared bindings, got %s", issues)
+	}
+}
+
+func TestBuildPlanOmitsRenderedServiceAccountManifestForSharedBindings(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	for _, topic := range plan.Tenants[0].Topics {
+		if topic.ServiceAccountManifestYAML != "" {
+			t.Fatalf("expected shared binding topic %q to omit rendered ServiceAccount manifest, got %q", topic.Name, topic.ServiceAccountManifestYAML)
+		}
+		if !strings.Contains(topic.DeploymentManifestYAML, "serviceAccountName: opa-shared") {
+			t.Fatalf("expected deployment for topic %q to keep serviceAccountName binding, got %q", topic.Name, topic.DeploymentManifestYAML)
+		}
 	}
 }
 

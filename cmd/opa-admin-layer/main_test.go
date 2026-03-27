@@ -597,3 +597,48 @@ func TestRunRenderWritesAutoscalingManifest(t *testing.T) {
 		t.Fatalf("expected rendered hpa manifest, got %s", string(hpa))
 	}
 }
+
+func TestRunRenderOmitsServiceAccountArtifactForSharedBindings(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "spec.json")
+	spec := `{
+  "name": "demo",
+  "controlPlane": {
+    "baseServiceURL": "https://control.example.com",
+    "serviceAccountName": "opa-shared"
+  },
+  "tenants": [
+    {
+      "name": "tenant-a",
+      "topics": [
+        {
+          "name": "billing"
+        },
+        {
+          "name": "support"
+        }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(specPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	outDir := filepath.Join(t.TempDir(), "tree")
+	if err := run([]string{"render", "-input", specPath, "-outdir", outDir}); err != nil {
+		t.Fatalf("run render: %v", err)
+	}
+
+	for _, topic := range []string{"billing", "support"} {
+		if _, err := os.Stat(filepath.Join(outDir, "tenant-a", topic, "serviceaccount.yaml")); !os.IsNotExist(err) {
+			t.Fatalf("expected shared-binding topic %s to omit serviceaccount.yaml, got err=%v", topic, err)
+		}
+		deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", topic, "deployment.yaml"))
+		if err != nil {
+			t.Fatalf("read deployment for %s: %v", topic, err)
+		}
+		if !strings.Contains(string(deploymentBytes), "serviceAccountName: opa-shared") {
+			t.Fatalf("expected deployment for %s to keep serviceAccountName binding, got %s", topic, string(deploymentBytes))
+		}
+	}
+}
