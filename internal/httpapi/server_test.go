@@ -653,6 +653,22 @@ func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointRejectsAutoscalingWithoutEffectiveCPURequest(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"memory":"128Mi"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`effective autoscaling requires effective opaResources.requests.cpu to be set for CPU utilization metrics`)) {
+		t.Fatalf("expected autoscaling cpu request error, got %s", rec.Body.String())
+	}
+}
+
 func TestValidateEndpointRejectsConflictingAutoscalingAndReplicas(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","replicas":2,"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
@@ -671,7 +687,7 @@ func TestValidateEndpointRejectsConflictingAutoscalingAndReplicas(t *testing.T) 
 
 func TestPlanEndpointRendersAutoscalingManifest(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","opaResources":{"requests":{"cpu":"100m"}},"autoscaling":{"minReplicas":2,"maxReplicas":5,"targetCPUUtilizationPercentage":70}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 

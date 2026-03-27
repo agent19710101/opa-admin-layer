@@ -111,7 +111,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - strict JSON or YAML decoding for CLI and REST input (unknown fields are rejected early in both formats)
 - configurable but pinned OPA image selection via `controlPlane.opaImage`
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express Kubernetes image pull behavior without downstream patches
-- optional shared `controlPlane.autoscaling` plus topic-level overrides so generated workloads can emit Kubernetes HorizontalPodAutoscaler manifests with CPU utilization targets without downstream patching
+- optional shared `controlPlane.autoscaling` plus topic-level overrides so generated workloads can emit Kubernetes HorizontalPodAutoscaler manifests with CPU utilization targets without downstream patching, with effective `opaResources.requests.cpu` required for autoscaled workloads
 - normalized tenant/topic inventory
 - per-topic OPA bundle URL
 - generated OPA config YAML
@@ -261,3 +261,5 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
 ```
 
 Topic metadata can also explicitly clear inherited object-scoped keys with removal lists such as `removeServiceLabels`, `removeConfigMapAnnotations`, or `removePodLabels` when one workload needs a shared default to end absent.
+
+Autoscaling uses CPU utilization targets, so any autoscaled workload must have an effective `opaResources.requests.cpu` value after shared/topic inheritance is applied.

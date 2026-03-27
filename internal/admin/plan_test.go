@@ -1780,6 +1780,9 @@ func TestBuildPlanRendersHPAFromInheritedAutoscaling(t *testing.T) {
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{CPU: "100m"},
+			},
 			Autoscaling: &Autoscaling{
 				MinReplicas:                    2,
 				MaxReplicas:                    6,
@@ -1811,6 +1814,69 @@ func TestBuildPlanRendersHPAFromInheritedAutoscaling(t *testing.T) {
 	} {
 		if !strings.Contains(topic.HPAManifestYAML, expected) {
 			t.Fatalf("expected HPA manifest to contain %q, got %q", expected, topic.HPAManifestYAML)
+		}
+	}
+}
+
+func TestValidateRejectsAutoscalingWithoutEffectiveCPURequest(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			Autoscaling: &Autoscaling{
+				MinReplicas:                    2,
+				MaxReplicas:                    5,
+				TargetCPUUtilizationPercentage: 70,
+			},
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{Memory: "128Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	expected := `tenant "tenant-a" topic "billing" effective autoscaling requires effective opaResources.requests.cpu to be set for CPU utilization metrics`
+	if !strings.Contains(joined, expected) {
+		t.Fatalf("expected autoscaling cpu request issue %q, got %#v", expected, issues)
+	}
+}
+
+func TestValidateAllowsAutoscalingWhenTopicSuppliesCPURequest(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL: "https://control.example.com",
+			OPAResources: ResourceRequirements{
+				Requests: &ResourceList{Memory: "128Mi"},
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Autoscaling: &Autoscaling{
+					MinReplicas:                    2,
+					MaxReplicas:                    5,
+					TargetCPUUtilizationPercentage: 70,
+				},
+				OPAResources: ResourceRequirements{
+					Requests: &ResourceList{CPU: "100m"},
+				},
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	for _, issue := range issues {
+		if strings.Contains(issue, "effective autoscaling requires effective opaResources.requests.cpu") {
+			t.Fatalf("did not expect autoscaling cpu request issue, got %#v", issues)
 		}
 	}
 }

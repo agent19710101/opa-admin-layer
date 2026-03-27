@@ -52,3 +52,4 @@
 5. Keep the repository runnable and testable after each meaningful change.
 32. Operators should be able to declare shared and topic-level `autoscaling` settings with CPU utilization targets so generated OPA workloads can emit HorizontalPodAutoscaler manifests without downstream patching.
 33. Autoscaling-managed workloads must reject conflicting fixed `replicas` settings so the generated Deployment replica count and HPA controller contract cannot drift apart.
+34. Autoscaling-managed workloads that target CPU utilization must require an effective `opaResources.requests.cpu` value after shared/topic inheritance so the generated HPA contract has a valid CPU-request baseline.

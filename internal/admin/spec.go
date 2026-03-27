@@ -268,8 +268,9 @@ func Validate(spec Specification) []string {
 	if err := validateServiceTrafficPolicyCompatibility(spec.ControlPlane.ServiceType, spec.ControlPlane.ExternalTrafficPolicy); err != nil {
 		issues = append(issues, fmt.Sprintf("controlPlane.externalTrafficPolicy is invalid: %v", err))
 	}
+	effectiveSharedResources := normalizeResourceRequirements(spec.ControlPlane.OPAResources)
 	issues = append(issues, validateOPAResources(spec.ControlPlane.OPAResources)...)
-	issues = append(issues, validateOPAResourceBudgetAtPath("controlPlane.opaResources", normalizeResourceRequirements(spec.ControlPlane.OPAResources))...)
+	issues = append(issues, validateOPAResourceBudgetAtPath("controlPlane.opaResources", effectiveSharedResources)...)
 	if len(spec.Tenants) == 0 {
 		issues = append(issues, "spec.tenants must contain at least one tenant")
 	}
@@ -409,8 +410,16 @@ func Validate(spec Specification) []string {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q effective externalTrafficPolicy is invalid: %v", tenantName, topicName, err))
 			}
 			issues = append(issues, validateOPAResourcesAtPath(fmt.Sprintf("tenant %q topic %q opaResources", tenantName, topicName), topic.OPAResources)...)
-			effectiveResources := mergeResourceRequirements(normalizeResourceRequirements(spec.ControlPlane.OPAResources), normalizeResourceRequirements(topic.OPAResources))
+			effectiveResources := mergeResourceRequirements(effectiveSharedResources, normalizeResourceRequirements(topic.OPAResources))
 			issues = append(issues, validateOPAResourceBudgetAtPath(fmt.Sprintf("tenant %q topic %q effective opaResources", tenantName, topicName), effectiveResources)...)
+			var effectiveAutoscaling *Autoscaling
+			if spec.ControlPlane.Autoscaling != nil {
+				effectiveAutoscaling = spec.ControlPlane.Autoscaling
+			}
+			if topic.Autoscaling != nil {
+				effectiveAutoscaling = topic.Autoscaling
+			}
+			issues = append(issues, validateAutoscalingCPURequestAtPath(fmt.Sprintf("tenant %q topic %q effective autoscaling", tenantName, topicName), effectiveAutoscaling, effectiveResources)...)
 			for resourceKind, resourceName := range map[string]string{
 				"deployment": deploymentName(spec.Name, tenantName, topicName),
 				"configmap":  topicConfigMapName(spec.Name, tenantName, topicName),
@@ -521,6 +530,16 @@ func validateAutoscalingAtPath(path string, value *Autoscaling) []string {
 		issues = append(issues, fmt.Sprintf("%s.maxReplicas must be greater than or equal to minReplicas", path))
 	}
 	return issues
+}
+
+func validateAutoscalingCPURequestAtPath(path string, autoscaling *Autoscaling, resources ResourceRequirements) []string {
+	if autoscaling == nil {
+		return nil
+	}
+	if resources.Requests == nil || strings.TrimSpace(resources.Requests.CPU) == "" {
+		return []string{fmt.Sprintf("%s requires effective opaResources.requests.cpu to be set for CPU utilization metrics", path)}
+	}
+	return nil
 }
 
 func validateImagePullPolicy(value string) error {

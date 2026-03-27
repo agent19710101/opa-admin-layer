@@ -534,6 +534,11 @@ func TestRunRenderWritesAutoscalingManifest(t *testing.T) {
   "name": "demo",
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
+    "opaResources": {
+      "requests": {
+        "cpu": "100m"
+      }
+    },
     "autoscaling": {
       "minReplicas": 2,
       "maxReplicas": 5,
