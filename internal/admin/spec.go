@@ -488,8 +488,64 @@ func Validate(spec Specification) []string {
 			}
 		}
 	}
+	issues = append(issues, validateSharedServiceAccountOwnership(normalize(spec))...)
 	sort.Strings(issues)
 	return issues
+}
+
+func validateSharedServiceAccountOwnership(spec Specification) []string {
+	type sharedServiceAccountMetadata struct {
+		annotations map[string]string
+		labels      map[string]string
+		owner       string
+		name        string
+	}
+
+	var issues []string
+	seen := map[string]sharedServiceAccountMetadata{}
+	for _, tenant := range spec.Tenants {
+		for _, topic := range tenant.Topics {
+			effectiveName := spec.ControlPlane.ServiceAccountName
+			if topic.ServiceAccountName != "" {
+				effectiveName = topic.ServiceAccountName
+			}
+			if effectiveName == "" {
+				continue
+			}
+			owner := fmt.Sprintf("tenant %q topic %q", tenant.Name, topic.Name)
+			effectiveAnnotations := mergeStringMapWithRemovals(spec.ControlPlane.ServiceAccountAnnotations, topic.ServiceAccountAnnotations, topic.RemoveServiceAccountAnnotations)
+			effectiveLabels := mergeStringMapWithRemovals(spec.ControlPlane.ServiceAccountLabels, topic.ServiceAccountLabels, topic.RemoveServiceAccountLabels)
+			key := strings.ToLower(effectiveName)
+			if existing, ok := seen[key]; ok {
+				if !stringMapsEqual(existing.annotations, effectiveAnnotations) {
+					issues = append(issues, fmt.Sprintf("effective serviceAccountName %q has incompatible shared serviceAccountAnnotations between %s and %s", existing.name, existing.owner, owner))
+				}
+				if !stringMapsEqual(existing.labels, effectiveLabels) {
+					issues = append(issues, fmt.Sprintf("effective serviceAccountName %q has incompatible shared serviceAccountLabels between %s and %s", existing.name, existing.owner, owner))
+				}
+				continue
+			}
+			seen[key] = sharedServiceAccountMetadata{
+				annotations: effectiveAnnotations,
+				labels:      effectiveLabels,
+				owner:       owner,
+				name:        effectiveName,
+			}
+		}
+	}
+	return issues
+}
+
+func stringMapsEqual(left, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		if rightValue, ok := right[key]; !ok || rightValue != leftValue {
+			return false
+		}
+	}
+	return true
 }
 
 func validateKubernetesLabelKey(key string) error {

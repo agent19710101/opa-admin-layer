@@ -650,6 +650,22 @@ func TestValidateEndpointAllowsRepeatedEffectiveServiceAccountNameForSharedBindi
 	}
 }
 
+func TestValidateEndpointRejectsIncompatibleSharedServiceAccountMetadata(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","serviceAccountLabels":{"example.com/scope":"shared"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"},{"name":"support","serviceAccountLabels":{"example.com/scope":"support"}}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`effective serviceAccountName \"opa-shared\" has incompatible shared serviceAccountLabels`)) {
+		t.Fatalf("expected incompatible shared service account error, got %s", rec.Body.String())
+	}
+}
+
 func TestPlanEndpointOmitsRenderedServiceAccountManifestForSharedBindings(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"},{"name":"support"}]}]}`))

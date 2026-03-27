@@ -1868,6 +1868,78 @@ func TestValidateAllowsRepeatedEffectiveServiceAccountNameForSharedBindings(t *t
 	}
 }
 
+func TestValidateRejectsIncompatibleSharedServiceAccountMetadata(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+			ServiceAccountAnnotations: map[string]string{
+				"example.com/source": "shared",
+			},
+			ServiceAccountLabels: map[string]string{
+				"example.com/scope": "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}, {
+				Name: "support",
+				ServiceAccountAnnotations: map[string]string{
+					"example.com/source": "support",
+				},
+				ServiceAccountLabels: map[string]string{
+					"example.com/scope": "support",
+				},
+			}},
+		}},
+	}
+
+	issues := strings.Join(Validate(spec), "\n")
+	for _, expected := range []string{
+		`effective serviceAccountName "opa-shared" has incompatible shared serviceAccountAnnotations between tenant "tenant-a" topic "billing" and tenant "tenant-a" topic "support"`,
+		`effective serviceAccountName "opa-shared" has incompatible shared serviceAccountLabels between tenant "tenant-a" topic "billing" and tenant "tenant-a" topic "support"`,
+	} {
+		if !strings.Contains(issues, expected) {
+			t.Fatalf("expected incompatible shared service account issue %q, got %#v", expected, issues)
+		}
+	}
+}
+
+func TestBuildPlanRejectsIncompatibleSharedServiceAccountMetadata(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+			ServiceAccountLabels: map[string]string{
+				"example.com/scope": "shared",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}, {
+				Name: "support",
+				ServiceAccountLabels: map[string]string{
+					"example.com/scope": "support",
+				},
+			}},
+		}},
+	}
+
+	_, err := BuildPlan(spec)
+	if err == nil {
+		t.Fatal("expected BuildPlan to reject incompatible shared service account metadata")
+	}
+	if !strings.Contains(err.Error(), `effective serviceAccountName "opa-shared" has incompatible shared serviceAccountLabels`) {
+		t.Fatalf("expected shared service account compatibility error, got %v", err)
+	}
+}
+
 func TestBuildPlanOmitsRenderedServiceAccountManifestForSharedBindings(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
