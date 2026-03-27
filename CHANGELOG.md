@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add shared/topic `serviceAccountLabels` plus topic removal support so rendered `ServiceAccount` manifests can carry ownership and GitOps labels without downstream patching
 - add shared/topic `serviceAccountAnnotations` plus topic removal support so rendered `ServiceAccount` manifests can carry workload-identity metadata without downstream patching
 - extend autoscaling to support optional memory utilization targets and require effective inherited CPU/memory requests for configured utilization metrics
 - add narrow HPA behavior support for scale-up and scale-down stabilization windows with validation and manifest rendering

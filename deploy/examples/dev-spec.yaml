@@ -36,6 +36,9 @@ controlPlane:
   serviceAccountAnnotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/shared-opa
     example.com/source: shared
+  serviceAccountLabels:
+    example.com/service-account-scope: shared
+    example.com/team: platform
   imagePullPolicy: IfNotPresent
   automountServiceAccountToken: false
   opaResources:
@@ -88,6 +91,11 @@ tenants:
           example.com/team: payments
         removeServiceAccountAnnotations:
           - eks.amazonaws.com/role-arn
+        serviceAccountLabels:
+          example.com/service-account-scope: billing
+          example.com/ring: canary
+        removeServiceAccountLabels:
+          - example.com/team
         imagePullPolicy: Always
         automountServiceAccountToken: true
         opaResources:

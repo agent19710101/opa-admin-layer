@@ -636,7 +636,7 @@ func TestValidateEndpointRejectsInvalidServiceAccountName(t *testing.T) {
 
 func TestValidateEndpointRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountAnnotations":{"Example.com/shared":"true"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountAnnotations":{"Example.com/topic":"true"},"removeServiceAccountAnnotations":["bad key"]}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountAnnotations":{"Example.com/shared":"true"},"serviceAccountLabels":{"bad key":"shared!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountAnnotations":{"Example.com/topic":"true"},"removeServiceAccountAnnotations":["bad key"],"serviceAccountLabels":{"Example.com/topic":"bad!"},"removeServiceAccountLabels":["also bad"]}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -647,8 +647,11 @@ func TestValidateEndpointRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 	}
 	for _, expected := range [][]byte{
 		[]byte(`controlPlane.serviceAccountAnnotations key`),
+		[]byte(`controlPlane.serviceAccountLabels key \"bad key\" is invalid`),
 		[]byte(`serviceAccountAnnotations key \"Example.com/topic\" is invalid`),
 		[]byte(`removeServiceAccountAnnotations entry \"bad key\" is invalid`),
+		[]byte(`serviceAccountLabels key \"Example.com/topic\" is invalid`),
+		[]byte(`removeServiceAccountLabels entry \"also bad\" is invalid`),
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {
 			t.Fatalf("expected invalid serviceAccountAnnotations error %q, got %s", expected, rec.Body.String())
@@ -658,7 +661,7 @@ func TestValidateEndpointRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 
 func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","serviceAccountAnnotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::123456789012:role/shared-opa"},"automountServiceAccountToken":false},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","serviceAccountAnnotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::123456789012:role/shared-opa"},"serviceAccountLabels":{"example.com/service-account-scope":"shared"},"automountServiceAccountToken":false},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountLabels":{"example.com/service-account-scope":"billing"}}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -671,6 +674,7 @@ func TestPlanEndpointRendersInheritedServiceAccountSettings(t *testing.T) {
 		[]byte(`serviceAccountName: opa-shared`),
 		[]byte(`eks.amazonaws.com/role-arn`),
 		[]byte(`arn:aws:iam::123456789012:role/shared-opa`),
+		[]byte(`example.com/service-account-scope: \"billing\"`),
 		[]byte(`automountServiceAccountToken: false`),
 	} {
 		if !bytes.Contains(rec.Body.Bytes(), expected) {

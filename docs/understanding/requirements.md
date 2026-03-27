@@ -43,6 +43,7 @@
 31. The repository should include runnable example admin specs for each supported primary input format so operator-facing ingestion paths are visible and easy to exercise.
 32. Topics should be able to remove inherited Service, ConfigMap, Deployment, and pod annotation/label keys through explicit removal lists so shared metadata defaults can be cleared back to absent state without downstream patching.
 33. Operators should be able to declare shared and topic-level `serviceAccountAnnotations` values, plus topic `removeServiceAccountAnnotations`, so rendered `ServiceAccount` objects can carry workload-identity metadata without downstream patching.
+34. Operators should be able to declare shared and topic-level `serviceAccountLabels` values, plus topic `removeServiceAccountLabels`, so rendered `ServiceAccount` objects can carry ownership, GitOps, and policy labels without downstream patching.
 
 ## Operational requirements
 

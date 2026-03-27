@@ -134,6 +134,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 - optional shared `controlPlane.serviceAccountName` plus topic-level overrides so rendered OPA Deployments can bind to explicit Kubernetes workload identities without downstream patches
 - rendered `ServiceAccount` YAML whenever a topic resolves a non-empty effective `serviceAccountName`, keeping exported workload bundles self-contained for the common service-account provisioning path
 - optional shared `controlPlane.serviceAccountAnnotations` plus topic-level overrides and `removeServiceAccountAnnotations` so rendered `ServiceAccount` objects can carry IAM/workload-identity metadata without downstream patches
+- optional shared `controlPlane.serviceAccountLabels` plus topic-level overrides and `removeServiceAccountLabels` so rendered `ServiceAccount` objects can carry ownership, GitOps, and policy labels without downstream patches
 - optional shared `controlPlane.imagePullPolicy` plus topic-level overrides so rendered OPA Deployments can express `Always`, `IfNotPresent`, or `Never` image pull behavior without downstream patches
 - optional shared `controlPlane.automountServiceAccountToken` plus topic-level overrides so rendered OPA Deployments can explicitly keep or disable service-account token projection without downstream patches
 - optional shared `controlPlane.externalTrafficPolicy` plus topic-level overrides so externally exposed Services can preserve source-aware routing behavior without downstream patching
@@ -158,7 +159,7 @@ When `render` is called with `-outdir`, it also materializes:
 
 This slice is exposed through both the CLI and the REST API.
 
-Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inherited/overridden ServiceAccount annotations and token automount, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
+Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inherited/overridden ServiceAccount annotations, labels, and token automount, inherited/overridden external and internal traffic policy, per-topic Service overrides, shared OPA resource defaults, and a per-topic resource override (using standard Kubernetes quantity strings):
 
 ```json
 {
@@ -199,6 +200,10 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
     "serviceAccountName": "opa-shared",
     "serviceAccountAnnotations": {
       "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/shared-opa"
+    },
+    "serviceAccountLabels": {
+      "example.com/service-account-scope": "shared",
+      "example.com/team": "platform"
     },
     "imagePullPolicy": "IfNotPresent",
     "automountServiceAccountToken": false,
@@ -259,6 +264,13 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
           "removeServiceAccountAnnotations": [
             "eks.amazonaws.com/role-arn"
           ],
+          "serviceAccountLabels": {
+            "example.com/service-account-scope": "billing",
+            "example.com/ring": "canary"
+          },
+          "removeServiceAccountLabels": [
+            "example.com/team"
+          ],
           "imagePullPolicy": "Always",
           "automountServiceAccountToken": true,
           "opaResources": {
@@ -273,6 +285,6 @@ Example shared namespace, shared/topic ConfigMap metadata, Service metadata, inh
 }
 ```
 
-Topic metadata can also explicitly clear inherited object-scoped keys with removal lists such as `removeServiceLabels`, `removeConfigMapAnnotations`, `removeServiceAccountAnnotations`, or `removePodLabels` when one workload needs a shared default to end absent.
+Topic metadata can also explicitly clear inherited object-scoped keys with removal lists such as `removeServiceLabels`, `removeConfigMapAnnotations`, `removeServiceAccountAnnotations`, `removeServiceAccountLabels`, or `removePodLabels` when one workload needs a shared default to end absent.
 
 Autoscaling can use CPU utilization targets, memory utilization targets, or both. Any autoscaled workload must have effective inherited `opaResources.requests.cpu` and/or `opaResources.requests.memory` values for the metrics it configures.

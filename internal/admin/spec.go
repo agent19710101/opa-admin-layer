@@ -51,6 +51,7 @@ type ControlPlane struct {
 	PodLabels                    map[string]string    `json:"podLabels" yaml:"podLabels"`
 	ServiceAccountName           string               `json:"serviceAccountName" yaml:"serviceAccountName"`
 	ServiceAccountAnnotations    map[string]string    `json:"serviceAccountAnnotations" yaml:"serviceAccountAnnotations"`
+	ServiceAccountLabels         map[string]string    `json:"serviceAccountLabels" yaml:"serviceAccountLabels"`
 	AutomountServiceAccountToken *bool                `json:"automountServiceAccountToken" yaml:"automountServiceAccountToken"`
 	ExternalTrafficPolicy        string               `json:"externalTrafficPolicy" yaml:"externalTrafficPolicy"`
 	InternalTrafficPolicy        string               `json:"internalTrafficPolicy" yaml:"internalTrafficPolicy"`
@@ -118,6 +119,8 @@ type Topic struct {
 	ServiceAccountName              string               `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
 	ServiceAccountAnnotations       map[string]string    `json:"serviceAccountAnnotations,omitempty" yaml:"serviceAccountAnnotations,omitempty"`
 	RemoveServiceAccountAnnotations []string             `json:"removeServiceAccountAnnotations,omitempty" yaml:"removeServiceAccountAnnotations,omitempty"`
+	ServiceAccountLabels            map[string]string    `json:"serviceAccountLabels,omitempty" yaml:"serviceAccountLabels,omitempty"`
+	RemoveServiceAccountLabels      []string             `json:"removeServiceAccountLabels,omitempty" yaml:"removeServiceAccountLabels,omitempty"`
 	AutomountServiceAccountToken    *bool                `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
 	ExternalTrafficPolicy           string               `json:"externalTrafficPolicy,omitempty" yaml:"externalTrafficPolicy,omitempty"`
 	InternalTrafficPolicy           string               `json:"internalTrafficPolicy,omitempty" yaml:"internalTrafficPolicy,omitempty"`
@@ -213,6 +216,14 @@ func Validate(spec Specification) []string {
 	for annotationKey := range spec.ControlPlane.ServiceAccountAnnotations {
 		if err := validateKubernetesLabelKey(annotationKey); err != nil {
 			issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountAnnotations key %q is invalid: %v", annotationKey, err))
+		}
+	}
+	for labelKey, labelValue := range spec.ControlPlane.ServiceAccountLabels {
+		if err := validateKubernetesLabelKey(labelKey); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountLabels key %q is invalid: %v", labelKey, err))
+		}
+		if err := validateKubernetesLabelValue(labelValue); err != nil {
+			issues = append(issues, fmt.Sprintf("controlPlane.serviceAccountLabels label %q has invalid value %q: %v", labelKey, labelValue, err))
 		}
 	}
 	issues = append(issues, validateAutoscalingAtPath("controlPlane.autoscaling", spec.ControlPlane.Autoscaling)...)
@@ -336,6 +347,15 @@ func Validate(spec Specification) []string {
 				}
 			}
 			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeServiceAccountAnnotations", tenantName, topicName), topic.RemoveServiceAccountAnnotations)...)
+			for labelKey, labelValue := range topic.ServiceAccountLabels {
+				if err := validateKubernetesLabelKey(labelKey); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountLabels key %q is invalid: %v", tenantName, topicName, labelKey, err))
+				}
+				if err := validateKubernetesLabelValue(labelValue); err != nil {
+					issues = append(issues, fmt.Sprintf("tenant %q topic %q serviceAccountLabels label %q has invalid value %q: %v", tenantName, topicName, labelKey, labelValue, err))
+				}
+			}
+			issues = append(issues, validateRemovalKeys(fmt.Sprintf("tenant %q topic %q removeServiceAccountLabels", tenantName, topicName), topic.RemoveServiceAccountLabels)...)
 			issues = append(issues, validateAutoscalingAtPath(fmt.Sprintf("tenant %q topic %q autoscaling", tenantName, topicName), topic.Autoscaling)...)
 			if topic.Autoscaling != nil && topic.Replicas != 0 {
 				issues = append(issues, fmt.Sprintf("tenant %q topic %q replicas is invalid: cannot be set when autoscaling is configured", tenantName, topicName))

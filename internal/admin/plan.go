@@ -83,6 +83,8 @@ func BuildPlan(spec Specification) (Plan, error) {
 				effectiveServiceAccountName = topic.ServiceAccountName
 			}
 			effectiveServiceAccountAnnotations := mergeStringMapWithRemovals(normalized.ControlPlane.ServiceAccountAnnotations, topic.ServiceAccountAnnotations, topic.RemoveServiceAccountAnnotations)
+			effectiveServiceAccountLabels := mergeStringMapWithRemovals(normalized.ControlPlane.ServiceAccountLabels, topic.ServiceAccountLabels, topic.RemoveServiceAccountLabels)
+			renderedServiceAccountLabels := mergeProtectedStringMap(renderedLabels, effectiveServiceAccountLabels, builtInLabels)
 			effectiveAutomountServiceAccountToken := normalized.ControlPlane.AutomountServiceAccountToken
 			if topic.AutomountServiceAccountToken != nil {
 				effectiveAutomountServiceAccountToken = topic.AutomountServiceAccountToken
@@ -123,7 +125,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 			}
 			var serviceAccountManifestYAML string
 			if effectiveServiceAccountName != "" {
-				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace, effectiveServiceAccountAnnotations)
+				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace, renderedServiceAccountLabels, effectiveServiceAccountAnnotations)
 			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
 				Name:                       topic.Name,
@@ -170,12 +172,12 @@ metadata:
 `, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderStringMapBlock(labels, 4), indentedConfig)
 }
 
-func renderServiceAccountYAML(name, namespace string, annotations map[string]string) string {
+func renderServiceAccountYAML(name, namespace string, labels, annotations map[string]string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: %s
-%s%s`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2))
+%s%s%s`, name, renderNamespaceSection(namespace, 2), renderAnnotationsSection(annotations, 2), renderLabelsSection(labels, 2))
 }
 
 func renderDeploymentYAML(name, namespace string, replicas int, listenAddress string, containerPort int, image, imagePullPolicy, configMapName string, deploymentLabels, deploymentAnnotations, podAnnotations, podLabels map[string]string, serviceAccountName string, automountServiceAccountToken *bool, resources ResourceRequirements) string {
@@ -453,6 +455,13 @@ func renderAnnotationsSection(annotations map[string]string, indent int) string 
 		return ""
 	}
 	return fmt.Sprintf("%sannotations:\n%s", strings.Repeat(" ", indent), renderStringMapBlock(annotations, indent+2))
+}
+
+func renderLabelsSection(labels map[string]string, indent int) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%slabels:\n%s", strings.Repeat(" ", indent), renderStringMapBlock(labels, indent+2))
 }
 
 func renderStringMapBlock(values map[string]string, indent int) string {

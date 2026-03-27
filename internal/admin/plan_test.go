@@ -1710,6 +1710,72 @@ func TestBuildPlanMergesTopicServiceAccountAnnotationsOverSharedDefault(t *testi
 	}
 }
 
+func TestBuildPlanMergesTopicServiceAccountLabelsOverSharedDefault(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+			ServiceAccountLabels: map[string]string{
+				"example.com/service-account-scope": "shared",
+				"example.com/team":                  "platform",
+			},
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+				Labels: map[string]string{
+					"example.com/workload": "billing",
+				},
+				ServiceAccountLabels: map[string]string{
+					"example.com/service-account-scope": "billing",
+					"example.com/ring":                  "canary",
+					"app.kubernetes.io/name":            "ignored",
+				},
+				RemoveServiceAccountLabels: []string{"example.com/team"},
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	plan, err := BuildPlan(spec)
+	if err != nil {
+		t.Fatalf("BuildPlan returned error: %v", err)
+	}
+	billingServiceAccount := plan.Tenants[0].Topics[0].ServiceAccountManifestYAML
+	for _, expected := range []string{
+		`labels:`,
+		`app.kubernetes.io/name: "demo-tenant-a-billing-opa"`,
+		`app.kubernetes.io/component: "opa"`,
+		`example.com/workload: "billing"`,
+		`example.com/service-account-scope: "billing"`,
+		`example.com/ring: "canary"`,
+	} {
+		if !strings.Contains(billingServiceAccount, expected) {
+			t.Fatalf("expected billing service account manifest to contain %q, got %q", expected, billingServiceAccount)
+		}
+	}
+	if strings.Contains(billingServiceAccount, `example.com/team`) {
+		t.Fatalf("expected billing service account manifest to remove inherited label, got %q", billingServiceAccount)
+	}
+	if strings.Contains(billingServiceAccount, `app.kubernetes.io/name: "ignored"`) {
+		t.Fatalf("expected built-in service account labels to remain immutable, got %q", billingServiceAccount)
+	}
+
+	supportServiceAccount := plan.Tenants[0].Topics[1].ServiceAccountManifestYAML
+	for _, expected := range []string{
+		`app.kubernetes.io/name: "demo-tenant-a-support-opa"`,
+		`example.com/service-account-scope: "shared"`,
+		`example.com/team: "platform"`,
+	} {
+		if !strings.Contains(supportServiceAccount, expected) {
+			t.Fatalf("expected support service account manifest to contain %q, got %q", expected, supportServiceAccount)
+		}
+	}
+}
+
 func TestBuildPlanMergesTopicAutomountServiceAccountTokenOverSharedDefault(t *testing.T) {
 	sharedAutomount := false
 	topicAutomount := true
@@ -1784,6 +1850,9 @@ func TestValidateRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 			ServiceAccountAnnotations: map[string]string{
 				"Example.com/shared": "true",
 			},
+			ServiceAccountLabels: map[string]string{
+				"bad key": "shared!",
+			},
 		},
 		Tenants: []Tenant{{
 			Name: "tenant-a",
@@ -1793,6 +1862,10 @@ func TestValidateRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 					"Example.com/topic": "true",
 				},
 				RemoveServiceAccountAnnotations: []string{"bad key"},
+				ServiceAccountLabels: map[string]string{
+					"Example.com/topic": "bad!",
+				},
+				RemoveServiceAccountLabels: []string{"also bad"},
 			}},
 		}},
 	}
@@ -1801,8 +1874,13 @@ func TestValidateRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 	joined := strings.Join(issues, "\n")
 	for _, expected := range []string{
 		`controlPlane.serviceAccountAnnotations key "Example.com/shared" is invalid`,
+		`controlPlane.serviceAccountLabels key "bad key" is invalid`,
+		`controlPlane.serviceAccountLabels label "bad key" has invalid value "shared!"`,
 		`tenant "tenant-a" topic "billing" serviceAccountAnnotations key "Example.com/topic" is invalid`,
 		`tenant "tenant-a" topic "billing" removeServiceAccountAnnotations entry "bad key" is invalid`,
+		`tenant "tenant-a" topic "billing" serviceAccountLabels key "Example.com/topic" is invalid`,
+		`tenant "tenant-a" topic "billing" serviceAccountLabels label "Example.com/topic" has invalid value "bad!"`,
+		`tenant "tenant-a" topic "billing" removeServiceAccountLabels entry "also bad" is invalid`,
 	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("expected invalid serviceAccountAnnotations issue %q, got %#v", expected, issues)

@@ -20,6 +20,9 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
     "serviceAccountAnnotations": {
       "eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/shared-opa"
     },
+    "serviceAccountLabels": {
+      "example.com/service-account-scope": "shared"
+    },
     "opaResources": {
       "requests": {
         "cpu": "100m",
@@ -85,6 +88,7 @@ func TestRunRenderWithOutDirWritesPlanTree(t *testing.T) {
 		"kind: ServiceAccount",
 		"name: opa-shared",
 		`eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/shared-opa"`,
+		`example.com/service-account-scope: "shared"`,
 	} {
 		if !strings.Contains(serviceAccount, expected) {
 			t.Fatalf("expected rendered service account manifest to contain %q, got %s", expected, serviceAccount)
