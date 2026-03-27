@@ -19,9 +19,15 @@ type Plan struct {
 }
 
 type SharedServiceAccountPlan struct {
-	Name         string `json:"name"`
-	Namespace    string `json:"namespace,omitempty"`
-	ManifestYAML string `json:"manifestYAML"`
+	Name         string                         `json:"name"`
+	Namespace    string                         `json:"namespace,omitempty"`
+	Topics       []SharedServiceAccountTopicRef `json:"topics,omitempty"`
+	ManifestYAML string                         `json:"manifestYAML"`
+}
+
+type SharedServiceAccountTopicRef struct {
+	Tenant string `json:"tenant"`
+	Topic  string `json:"topic"`
 }
 
 type TenantPlan struct {
@@ -165,9 +171,17 @@ func BuildPlan(spec Specification) (Plan, error) {
 		info := effectiveServiceAccounts[key]
 		builtInLabels := builtInSharedServiceAccountLabels(info.name)
 		renderedLabels := mergeProtectedStringMap(builtInLabels, info.labels, builtInLabels)
+		topics := append([]SharedServiceAccountTopicRef(nil), info.topics...)
+		sort.Slice(topics, func(i, j int) bool {
+			if topics[i].Tenant != topics[j].Tenant {
+				return topics[i].Tenant < topics[j].Tenant
+			}
+			return topics[i].Topic < topics[j].Topic
+		})
 		plan.SharedServiceAccounts = append(plan.SharedServiceAccounts, SharedServiceAccountPlan{
 			Name:         info.name,
 			Namespace:    normalized.ControlPlane.Namespace,
+			Topics:       topics,
 			ManifestYAML: renderServiceAccountYAML(info.name, normalized.ControlPlane.Namespace, renderedLabels, info.annotations),
 		})
 	}
@@ -368,6 +382,7 @@ type effectiveServiceAccount struct {
 	name        string
 	annotations map[string]string
 	labels      map[string]string
+	topics      []SharedServiceAccountTopicRef
 	count       int
 }
 
@@ -392,6 +407,7 @@ func collectEffectiveServiceAccounts(spec Specification) map[string]effectiveSer
 					labels:      mergeStringMapWithRemovals(spec.ControlPlane.ServiceAccountLabels, topic.ServiceAccountLabels, topic.RemoveServiceAccountLabels),
 				}
 			}
+			info.topics = append(info.topics, SharedServiceAccountTopicRef{Tenant: tenant.Name, Topic: topic.Name})
 			info.count++
 			accounts[key] = info
 		}

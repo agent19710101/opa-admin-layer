@@ -1982,6 +1982,12 @@ func TestBuildPlanRendersSharedServiceAccountManifestForCompatibleSharedBindings
 	if shared.Name != "opa-shared" {
 		t.Fatalf("expected shared service account name to be preserved, got %#v", shared)
 	}
+	if len(shared.Topics) != 2 {
+		t.Fatalf("expected shared service account to record contributing topics, got %#v", shared.Topics)
+	}
+	if shared.Topics[0] != (SharedServiceAccountTopicRef{Tenant: "tenant-a", Topic: "billing"}) || shared.Topics[1] != (SharedServiceAccountTopicRef{Tenant: "tenant-a", Topic: "support"}) {
+		t.Fatalf("expected shared service account topics to be sorted contributor refs, got %#v", shared.Topics)
+	}
 	for _, expected := range []string{
 		"kind: ServiceAccount",
 		"name: opa-shared",

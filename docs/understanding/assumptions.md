@@ -5,4 +5,4 @@
 - Kubernetes deployment YAML is a useful first deployment target because the research pack emphasizes sidecar patterns.
 - GitHub repo creation and push can proceed automatically because local git/GitHub actions do not require confirmation in this workspace.
 - OpenSpec CLI is not required if the repository mirrors the expected structure manually.
-- The next smallest useful ServiceAccount metadata slice after annotations is labels, because GitOps, ownership, and policy integrations often key off labels while RBAC and broader ServiceAccount customization can still remain out of scope.
+- After shared owned ServiceAccounts landed, the next smallest useful follow-up is contributor traceability in plan output, because deduplicated shared objects are harder to audit if operators cannot see which tenant/topic workloads claim them.

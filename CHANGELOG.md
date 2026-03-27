@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- add contributing tenant/topic refs to shared `ServiceAccount` plan entries so deduplicated shared identity ownership stays traceable in `plan.json` and REST plan responses
 - add topic-level `listenAddress` overrides so one workload can render a different OPA socket and Service port than the shared control-plane default
 - render one shared `ServiceAccount` manifest per compatible repeated effective `serviceAccountName` and write the deduplicated artifact under `shared/serviceaccounts/<name>/serviceaccount.yaml`
 - allow repeated effective `serviceAccountName` values as shared/external bindings while suppressing conflicting rendered `ServiceAccount` manifests

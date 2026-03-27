@@ -151,7 +151,7 @@ The first shipped slice validates a tenant/topic scoped admin spec and renders a
 
 When `render` is called with `-outdir`, it also materializes:
 
-- `plan.json` at the output root
+- `plan.json` at the output root, including top-level `sharedServiceAccounts[].topics[]` contributor refs when a shared ServiceAccount is owned once for multiple topics
 - `<tenant>/<topic>/opa-config.yaml`
 - `<tenant>/<topic>/configmap.yaml`
 - `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured by exactly one topic

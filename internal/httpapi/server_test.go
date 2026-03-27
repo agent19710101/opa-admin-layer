@@ -694,6 +694,12 @@ func TestPlanEndpointRendersSharedServiceAccountManifestForSharedBindings(t *tes
 		t.Fatalf("expected one sharedServiceAccounts entry, got %#v", plan.SharedServiceAccounts)
 	}
 	shared := plan.SharedServiceAccounts[0]
+	if len(shared.Topics) != 2 {
+		t.Fatalf("expected sharedServiceAccounts entry to include contributing topics, got %#v", shared)
+	}
+	if shared.Topics[0] != (admin.SharedServiceAccountTopicRef{Tenant: "tenant-a", Topic: "billing"}) || shared.Topics[1] != (admin.SharedServiceAccountTopicRef{Tenant: "tenant-a", Topic: "support"}) {
+		t.Fatalf("expected sorted contributing topics, got %#v", shared.Topics)
+	}
 	for _, expected := range []string{"opa-shared", `example.com/source: "shared"`, `example.com/scope: "shared"`} {
 		if !strings.Contains(shared.ManifestYAML, expected) {
 			t.Fatalf("expected shared manifest to contain %q, got %q", expected, shared.ManifestYAML)
