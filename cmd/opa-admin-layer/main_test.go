@@ -598,13 +598,19 @@ func TestRunRenderWritesAutoscalingManifest(t *testing.T) {
 	}
 }
 
-func TestRunRenderOmitsServiceAccountArtifactForSharedBindings(t *testing.T) {
+func TestRunRenderWritesSharedServiceAccountArtifactForSharedBindings(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "spec.json")
 	spec := `{
   "name": "demo",
   "controlPlane": {
     "baseServiceURL": "https://control.example.com",
-    "serviceAccountName": "opa-shared"
+    "serviceAccountName": "opa-shared",
+    "serviceAccountAnnotations": {
+      "example.com/source": "shared"
+    },
+    "serviceAccountLabels": {
+      "example.com/scope": "shared"
+    }
   },
   "tenants": [
     {
@@ -629,9 +635,20 @@ func TestRunRenderOmitsServiceAccountArtifactForSharedBindings(t *testing.T) {
 		t.Fatalf("run render: %v", err)
 	}
 
+	sharedServiceAccountPath := filepath.Join(outDir, "shared", "serviceaccounts", "opa-shared", "serviceaccount.yaml")
+	sharedServiceAccountBytes, err := os.ReadFile(sharedServiceAccountPath)
+	if err != nil {
+		t.Fatalf("read shared serviceaccount: %v", err)
+	}
+	for _, expected := range []string{"name: opa-shared", `example.com/source: "shared"`, `example.com/scope: "shared"`} {
+		if !strings.Contains(string(sharedServiceAccountBytes), expected) {
+			t.Fatalf("expected shared serviceaccount.yaml to contain %q, got %s", expected, string(sharedServiceAccountBytes))
+		}
+	}
+
 	for _, topic := range []string{"billing", "support"} {
 		if _, err := os.Stat(filepath.Join(outDir, "tenant-a", topic, "serviceaccount.yaml")); !os.IsNotExist(err) {
-			t.Fatalf("expected shared-binding topic %s to omit serviceaccount.yaml, got err=%v", topic, err)
+			t.Fatalf("expected shared-binding topic %s to omit topic-scoped serviceaccount.yaml, got err=%v", topic, err)
 		}
 		deploymentBytes, err := os.ReadFile(filepath.Join(outDir, "tenant-a", topic, "deployment.yaml"))
 		if err != nil {

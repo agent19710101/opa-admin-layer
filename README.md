@@ -154,7 +154,8 @@ When `render` is called with `-outdir`, it also materializes:
 - `plan.json` at the output root
 - `<tenant>/<topic>/opa-config.yaml`
 - `<tenant>/<topic>/configmap.yaml`
-- `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured by exactly one topic; repeated/shared names stay binding-only and omit the rendered artifact
+- `<tenant>/<topic>/serviceaccount.yaml` when an effective `serviceAccountName` is configured by exactly one topic
+- `shared/serviceaccounts/<service-account-name>/serviceaccount.yaml` when multiple topics intentionally share one compatible effective `serviceAccountName`; the per-topic deployment bindings stay intact, but the owned artifact is deduplicated at the shared path
 - `<tenant>/<topic>/deployment.yaml`
 - `<tenant>/<topic>/service.yaml`
 - `<tenant>/<topic>/hpa.yaml` when autoscaling is configured

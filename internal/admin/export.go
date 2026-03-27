@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-// WritePlanTree materializes a rendered plan and per-topic YAML artifacts.
+// WritePlanTree materializes a rendered plan, shared YAML artifacts, and per-topic YAML artifacts.
 func WritePlanTree(plan Plan, outDir string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
@@ -18,6 +18,16 @@ func WritePlanTree(plan Plan, outDir string) error {
 	}
 	if err := os.WriteFile(filepath.Join(outDir, "plan.json"), append(encoded, '\n'), 0o644); err != nil {
 		return fmt.Errorf("write plan.json: %w", err)
+	}
+
+	for _, serviceAccount := range plan.SharedServiceAccounts {
+		sharedDir := filepath.Join(outDir, "shared", "serviceaccounts", serviceAccount.Name)
+		if err := os.MkdirAll(sharedDir, 0o755); err != nil {
+			return fmt.Errorf("create shared service account directory %q: %w", sharedDir, err)
+		}
+		if err := os.WriteFile(filepath.Join(sharedDir, "serviceaccount.yaml"), []byte(serviceAccount.ManifestYAML), 0o644); err != nil {
+			return fmt.Errorf("write shared serviceaccount.yaml for %s: %w", serviceAccount.Name, err)
+		}
 	}
 
 	for _, tenant := range plan.Tenants {

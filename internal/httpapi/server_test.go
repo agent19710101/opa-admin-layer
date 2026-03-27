@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/agent19710101/opa-admin-layer/internal/admin"
@@ -666,9 +667,9 @@ func TestValidateEndpointRejectsIncompatibleSharedServiceAccountMetadata(t *test
 	}
 }
 
-func TestPlanEndpointOmitsRenderedServiceAccountManifestForSharedBindings(t *testing.T) {
+func TestPlanEndpointRendersSharedServiceAccountManifestForSharedBindings(t *testing.T) {
 	h := NewHandler()
-	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"},{"name":"support"}]}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/plans", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared","serviceAccountAnnotations":{"example.com/source":"shared"},"serviceAccountLabels":{"example.com/scope":"shared"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"},{"name":"support"}]}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -683,10 +684,19 @@ func TestPlanEndpointOmitsRenderedServiceAccountManifestForSharedBindings(t *tes
 	}
 	for _, topic := range plan.Tenants[0].Topics {
 		if topic.ServiceAccountManifestYAML != "" {
-			t.Fatalf("expected topic %q to omit rendered ServiceAccount manifest for shared binding, got %q", topic.Name, topic.ServiceAccountManifestYAML)
+			t.Fatalf("expected topic %q to omit topic-scoped ServiceAccount manifest for shared binding, got %q", topic.Name, topic.ServiceAccountManifestYAML)
 		}
 		if !bytes.Contains([]byte(topic.DeploymentManifestYAML), []byte(`serviceAccountName: opa-shared`)) {
 			t.Fatalf("expected topic %q deployment to keep serviceAccountName binding, got %s", topic.Name, topic.DeploymentManifestYAML)
+		}
+	}
+	if len(plan.SharedServiceAccounts) != 1 {
+		t.Fatalf("expected one sharedServiceAccounts entry, got %#v", plan.SharedServiceAccounts)
+	}
+	shared := plan.SharedServiceAccounts[0]
+	for _, expected := range []string{"opa-shared", `example.com/source: "shared"`, `example.com/scope: "shared"`} {
+		if !strings.Contains(shared.ManifestYAML, expected) {
+			t.Fatalf("expected shared manifest to contain %q, got %q", expected, shared.ManifestYAML)
 		}
 	}
 }

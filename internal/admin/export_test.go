@@ -12,6 +12,10 @@ func TestWritePlanTree(t *testing.T) {
 		GeneratedAt: "2026-03-22T00:00:00Z",
 		Name:        "demo",
 		Topology:    "opa-only",
+		SharedServiceAccounts: []SharedServiceAccountPlan{{
+			Name:         "opa-shared",
+			ManifestYAML: "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: opa-shared\n",
+		}},
 		Tenants: []TenantPlan{{
 			Name: "tenant-a",
 			Topics: []TopicPlan{{
@@ -37,6 +41,17 @@ func TestWritePlanTree(t *testing.T) {
 	}
 	if !strings.Contains(string(planJSON), `"name": "demo"`) {
 		t.Fatalf("expected plan.json to include plan name, got %q", string(planJSON))
+	}
+	if !strings.Contains(string(planJSON), `"sharedServiceAccounts"`) {
+		t.Fatalf("expected plan.json to include sharedServiceAccounts, got %q", string(planJSON))
+	}
+
+	sharedServiceAccount, err := os.ReadFile(filepath.Join(outDir, "shared", "serviceaccounts", "opa-shared", "serviceaccount.yaml"))
+	if err != nil {
+		t.Fatalf("read shared serviceaccount.yaml: %v", err)
+	}
+	if string(sharedServiceAccount) != plan.SharedServiceAccounts[0].ManifestYAML {
+		t.Fatalf("shared serviceaccount.yaml mismatch: got %q want %q", string(sharedServiceAccount), plan.SharedServiceAccounts[0].ManifestYAML)
 	}
 
 	opaConfig, err := os.ReadFile(filepath.Join(outDir, "tenant-a", "billing", "opa-config.yaml"))

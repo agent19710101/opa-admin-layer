@@ -3,6 +3,7 @@
 ## Unreleased
 
 - add topic-level `listenAddress` overrides so one workload can render a different OPA socket and Service port than the shared control-plane default
+- render one shared `ServiceAccount` manifest per compatible repeated effective `serviceAccountName` and write the deduplicated artifact under `shared/serviceaccounts/<name>/serviceaccount.yaml`
 - allow repeated effective `serviceAccountName` values as shared/external bindings while suppressing conflicting rendered `ServiceAccount` manifests
 - extend HPA behavior support with narrow `selectPolicy` and explicit scaling `policies` rendering plus validation
 - add shared/topic `serviceAccountLabels` plus topic removal support so rendered `ServiceAccount` manifests can carry ownership and GitOps labels without downstream patching

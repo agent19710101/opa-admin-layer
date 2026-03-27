@@ -1940,12 +1940,18 @@ func TestBuildPlanRejectsIncompatibleSharedServiceAccountMetadata(t *testing.T) 
 	}
 }
 
-func TestBuildPlanOmitsRenderedServiceAccountManifestForSharedBindings(t *testing.T) {
+func TestBuildPlanRendersSharedServiceAccountManifestForCompatibleSharedBindings(t *testing.T) {
 	spec := Specification{
 		Name: "demo",
 		ControlPlane: ControlPlane{
 			BaseServiceURL:     "https://control.example.com",
 			ServiceAccountName: "opa-shared",
+			ServiceAccountAnnotations: map[string]string{
+				"example.com/source": "shared",
+			},
+			ServiceAccountLabels: map[string]string{
+				"example.com/scope": "shared",
+			},
 		},
 		Tenants: []Tenant{{
 			Name: "tenant-a",
@@ -1963,11 +1969,32 @@ func TestBuildPlanOmitsRenderedServiceAccountManifestForSharedBindings(t *testin
 	}
 	for _, topic := range plan.Tenants[0].Topics {
 		if topic.ServiceAccountManifestYAML != "" {
-			t.Fatalf("expected shared binding topic %q to omit rendered ServiceAccount manifest, got %q", topic.Name, topic.ServiceAccountManifestYAML)
+			t.Fatalf("expected shared binding topic %q to omit topic-scoped ServiceAccount manifest, got %q", topic.Name, topic.ServiceAccountManifestYAML)
 		}
 		if !strings.Contains(topic.DeploymentManifestYAML, "serviceAccountName: opa-shared") {
 			t.Fatalf("expected deployment for topic %q to keep serviceAccountName binding, got %q", topic.Name, topic.DeploymentManifestYAML)
 		}
+	}
+	if len(plan.SharedServiceAccounts) != 1 {
+		t.Fatalf("expected one shared service account manifest, got %#v", plan.SharedServiceAccounts)
+	}
+	shared := plan.SharedServiceAccounts[0]
+	if shared.Name != "opa-shared" {
+		t.Fatalf("expected shared service account name to be preserved, got %#v", shared)
+	}
+	for _, expected := range []string{
+		"kind: ServiceAccount",
+		"name: opa-shared",
+		`example.com/source: "shared"`,
+		`example.com/scope: "shared"`,
+		`app.kubernetes.io/name: "opa-shared"`,
+	} {
+		if !strings.Contains(shared.ManifestYAML, expected) {
+			t.Fatalf("expected shared service account manifest to contain %q, got %q", expected, shared.ManifestYAML)
+		}
+	}
+	if strings.Contains(shared.ManifestYAML, `app.kubernetes.io/topic`) || strings.Contains(shared.ManifestYAML, `app.kubernetes.io/tenant`) {
+		t.Fatalf("expected shared service account manifest to avoid topic-scoped identity labels, got %q", shared.ManifestYAML)
 	}
 }
 

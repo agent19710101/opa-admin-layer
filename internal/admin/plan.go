@@ -11,10 +11,17 @@ import (
 )
 
 type Plan struct {
-	GeneratedAt string       `json:"generatedAt"`
-	Name        string       `json:"name"`
-	Topology    string       `json:"topology"`
-	Tenants     []TenantPlan `json:"tenants"`
+	GeneratedAt           string                     `json:"generatedAt"`
+	Name                  string                     `json:"name"`
+	Topology              string                     `json:"topology"`
+	SharedServiceAccounts []SharedServiceAccountPlan `json:"sharedServiceAccounts,omitempty"`
+	Tenants               []TenantPlan               `json:"tenants"`
+}
+
+type SharedServiceAccountPlan struct {
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace,omitempty"`
+	ManifestYAML string `json:"manifestYAML"`
 }
 
 type TenantPlan struct {
@@ -48,7 +55,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 		Topology:    "opa-only",
 		Tenants:     make([]TenantPlan, 0, len(normalized.Tenants)),
 	}
-	sharedServiceAccountBindings := countEffectiveServiceAccounts(normalized)
+	effectiveServiceAccounts := collectEffectiveServiceAccounts(normalized)
 	for _, tenant := range normalized.Tenants {
 		tenantPlan := TenantPlan{Name: tenant.Name, Topics: make([]TopicPlan, 0, len(tenant.Topics))}
 		for _, topic := range tenant.Topics {
@@ -126,7 +133,7 @@ func BuildPlan(spec Specification) (Plan, error) {
 				hpaManifestYAML = renderHPAYAML(workloadName, normalized.ControlPlane.Namespace, effectiveAutoscaling)
 			}
 			var serviceAccountManifestYAML string
-			if effectiveServiceAccountName != "" && sharedServiceAccountBindings[strings.ToLower(effectiveServiceAccountName)] <= 1 {
+			if effectiveServiceAccountName != "" && effectiveServiceAccounts[strings.ToLower(effectiveServiceAccountName)].count <= 1 {
 				serviceAccountManifestYAML = renderServiceAccountYAML(effectiveServiceAccountName, normalized.ControlPlane.Namespace, renderedServiceAccountLabels, effectiveServiceAccountAnnotations)
 			}
 			tenantPlan.Topics = append(tenantPlan.Topics, TopicPlan{
@@ -146,6 +153,25 @@ func BuildPlan(spec Specification) (Plan, error) {
 		}
 		plan.Tenants = append(plan.Tenants, tenantPlan)
 	}
+
+	sharedKeys := make([]string, 0, len(effectiveServiceAccounts))
+	for key, info := range effectiveServiceAccounts {
+		if info.count > 1 {
+			sharedKeys = append(sharedKeys, key)
+		}
+	}
+	sort.Strings(sharedKeys)
+	for _, key := range sharedKeys {
+		info := effectiveServiceAccounts[key]
+		builtInLabels := builtInSharedServiceAccountLabels(info.name)
+		renderedLabels := mergeProtectedStringMap(builtInLabels, info.labels, builtInLabels)
+		plan.SharedServiceAccounts = append(plan.SharedServiceAccounts, SharedServiceAccountPlan{
+			Name:         info.name,
+			Namespace:    normalized.ControlPlane.Namespace,
+			ManifestYAML: renderServiceAccountYAML(info.name, normalized.ControlPlane.Namespace, renderedLabels, info.annotations),
+		})
+	}
+
 	return plan, nil
 }
 
@@ -338,8 +364,15 @@ func renderResourcesBlock(resources ResourceRequirements, indent int) string {
 	return b.String()
 }
 
-func countEffectiveServiceAccounts(spec Specification) map[string]int {
-	counts := map[string]int{}
+type effectiveServiceAccount struct {
+	name        string
+	annotations map[string]string
+	labels      map[string]string
+	count       int
+}
+
+func collectEffectiveServiceAccounts(spec Specification) map[string]effectiveServiceAccount {
+	accounts := map[string]effectiveServiceAccount{}
 	sharedName := strings.TrimSpace(spec.ControlPlane.ServiceAccountName)
 	for _, tenant := range spec.Tenants {
 		for _, topic := range tenant.Topics {
@@ -350,10 +383,20 @@ func countEffectiveServiceAccounts(spec Specification) map[string]int {
 			if effectiveName == "" {
 				continue
 			}
-			counts[strings.ToLower(effectiveName)]++
+			key := strings.ToLower(effectiveName)
+			info := accounts[key]
+			if info.name == "" {
+				info = effectiveServiceAccount{
+					name:        effectiveName,
+					annotations: mergeStringMapWithRemovals(spec.ControlPlane.ServiceAccountAnnotations, topic.ServiceAccountAnnotations, topic.RemoveServiceAccountAnnotations),
+					labels:      mergeStringMapWithRemovals(spec.ControlPlane.ServiceAccountLabels, topic.ServiceAccountLabels, topic.RemoveServiceAccountLabels),
+				}
+			}
+			info.count++
+			accounts[key] = info
 		}
 	}
-	return counts
+	return accounts
 }
 
 func renderResourceListBlock(name string, values *ResourceList, indent int) string {
@@ -383,6 +426,13 @@ func builtInTopicLabels(appName, tenantName, topicName string) map[string]string
 		"app.kubernetes.io/component": "opa",
 		"app.kubernetes.io/tenant":    tenantName,
 		"app.kubernetes.io/topic":     topicName,
+	}
+}
+
+func builtInSharedServiceAccountLabels(name string) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":      sanitizeName(name),
+		"app.kubernetes.io/component": "opa",
 	}
 }
 
