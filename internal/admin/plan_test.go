@@ -1671,7 +1671,8 @@ func TestBuildPlanMergesTopicServiceAccountAnnotationsOverSharedDefault(t *testi
 		Tenants: []Tenant{{
 			Name: "tenant-a",
 			Topics: []Topic{{
-				Name: "billing",
+				Name:               "billing",
+				ServiceAccountName: "billing-opa",
 				ServiceAccountAnnotations: map[string]string{
 					"example.com/source": "billing",
 					"example.com/team":   "payments",
@@ -1724,7 +1725,8 @@ func TestBuildPlanMergesTopicServiceAccountLabelsOverSharedDefault(t *testing.T)
 		Tenants: []Tenant{{
 			Name: "tenant-a",
 			Topics: []Topic{{
-				Name: "billing",
+				Name:               "billing",
+				ServiceAccountName: "billing-opa",
 				Labels: map[string]string{
 					"example.com/workload": "billing",
 				},
@@ -1790,6 +1792,7 @@ func TestBuildPlanMergesTopicAutomountServiceAccountTokenOverSharedDefault(t *te
 			Name: "tenant-a",
 			Topics: []Topic{{
 				Name:                         "billing",
+				ServiceAccountName:           "billing-opa",
 				AutomountServiceAccountToken: &topicAutomount,
 			}, {
 				Name: "support",
@@ -1839,6 +1842,31 @@ func TestValidateRejectsInvalidServiceAccountName(t *testing.T) {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("expected invalid serviceAccountName issue %q, got %#v", expected, issues)
 		}
+	}
+}
+
+func TestValidateRejectsRepeatedEffectiveServiceAccountName(t *testing.T) {
+	spec := Specification{
+		Name: "demo",
+		ControlPlane: ControlPlane{
+			BaseServiceURL:     "https://control.example.com",
+			ServiceAccountName: "opa-shared",
+		},
+		Tenants: []Tenant{{
+			Name: "tenant-a",
+			Topics: []Topic{{
+				Name: "billing",
+			}, {
+				Name: "support",
+			}},
+		}},
+	}
+
+	issues := Validate(spec)
+	joined := strings.Join(issues, "\n")
+	expected := `tenant "tenant-a" topic "support" effective serviceAccountName "opa-shared" repeats tenant "tenant-a" topic "billing"`
+	if !strings.Contains(joined, expected) {
+		t.Fatalf("expected repeated serviceAccountName issue %q, got %#v", expected, issues)
 	}
 }
 

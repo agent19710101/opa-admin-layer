@@ -634,6 +634,28 @@ func TestValidateEndpointRejectsInvalidServiceAccountName(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointRejectsRepeatedEffectiveServiceAccountName(t *testing.T) {
+	h := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountName":"opa-shared"},"tenants":[{"name":"tenant-a","topics":[{"name":"billing"},{"name":"support"}]}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	for _, expected := range [][]byte{
+		[]byte(`effective serviceAccountName`),
+		[]byte(`opa-shared`),
+		[]byte(`tenant \"tenant-a\" topic \"billing\"`),
+	} {
+		if !bytes.Contains(rec.Body.Bytes(), expected) {
+			t.Fatalf("expected repeated serviceAccountName error %q, got %s", expected, rec.Body.String())
+		}
+	}
+}
+
 func TestValidateEndpointRejectsInvalidServiceAccountAnnotations(t *testing.T) {
 	h := NewHandler()
 	req := httptest.NewRequest(http.MethodPost, "/v1/validate", bytes.NewBufferString(`{"name":"demo","controlPlane":{"baseServiceURL":"https://control.example.com","serviceAccountAnnotations":{"Example.com/shared":"true"},"serviceAccountLabels":{"bad key":"shared!"}},"tenants":[{"name":"tenant-a","topics":[{"name":"billing","serviceAccountAnnotations":{"Example.com/topic":"true"},"removeServiceAccountAnnotations":["bad key"],"serviceAccountLabels":{"Example.com/topic":"bad!"},"removeServiceAccountLabels":["also bad"]}]}]}`))

@@ -102,6 +102,7 @@ tenants:
           requests:
             memory: 256Mi
       - name: support
+        serviceAccountName: support-opa
         decisionPath: support/authz/allow
         autoscaling:
           minReplicas: 2
